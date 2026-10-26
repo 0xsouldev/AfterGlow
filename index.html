@@ -3000,7 +3000,7 @@ function drawSeismo(){
 
 // Lyrics for the Typewriter, looked up on LRCLIB (lrclib.net, free, no key) by song name, once per song.
 // Only the song name and artist are sent. If it can't be reached (offline, or blocked), the Typewriter uses your text
-const LYR = { key: '', text: '', sync: null };
+const LYR = { key: '', text: '', sync: null, state: '', song: '' };
 function songPos(){   // seconds into the song, or null if we can't tell
   if (songName && audioEl && isFinite(audioEl.currentTime)) return audioEl.currentTime;
   if (linkedSong && LINK.pos !== null && performance.now() - LINK.at < 10000) return LINK.pos + (LINK.playing ? (performance.now() - LINK.at)/1000 : 0);
@@ -3028,16 +3028,17 @@ function lyricsNow(){
   const s = settings.lyrics && songNow(); if (!s) return '';
   const key = (s.title + '|' + s.artist).toLowerCase();
   if (LYR.key !== key){
-    LYR.key = key; LYR.text = ''; LYR.sync = null;
+    LYR.key = key; LYR.text = ''; LYR.sync = null; LYR.state = 'loading'; LYR.song = s.title + (s.artist ? ' by ' + s.artist : '');
     fetch('https://lrclib.net/api/search?q=' + encodeURIComponent((s.title + ' ' + s.artist).trim()))
-      .then(r => r.ok ? r.json() : []).then(list => {
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(list => {
         if (LYR.key !== key || !Array.isArray(list)) return;
         const dur = songDur(), ok = list.filter(x => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics));
         const synced = ok.filter(x => x.syncedLyrics).sort((a, b) => dur ? Math.abs((a.duration || 0) - dur) - Math.abs((b.duration || 0) - dur) : 0);
         const hit = synced[0] || ok[0];
         LYR.sync = hit && hit.syncedLyrics ? parseLRC(hit.syncedLyrics) : null;
+        LYR.state = hit ? (LYR.sync ? 'synced' : 'plain') : 'none';
         if (hit) LYR.text = (hit.plainLyrics || hit.syncedLyrics.replace(/\[[^\]]*\]\s?/g, '')).replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim();
-      }).catch(() => {});
+      }).catch(() => { if (LYR.key === key) LYR.state = 'error'; });
   }
   return LYR.text;
 }
@@ -3078,7 +3079,12 @@ function drawType(){
   if ((T*2 % 1) < 0.5){ g.fillStyle = col(0.1, 0.9); g.fillRect(px + cur.length*cwid + 1, baseY - fs*0.85, 2, fs); }   // caret
   g.fillStyle = '#22212b'; rr(cx - W*0.4, top + h*0.8, W*0.8, h*0.12, 14); g.fill();   // the machine
   g.fillStyle = col(0.5, 0.5 + F.kickEnv*0.5); for (let i = 0; i < 12; i++){ g.beginPath(); g.arc(cx - W*0.33 + i*W*0.06, top + h*0.86, Math.min(W, h)*0.016*(1 + (i === (TYP.ci % 12) ? TYP.strike*0.6 : 0)), 0, Math.PI*2); g.fill(); }
-  if (lyr){ g.font = '500 11px ' + FONT_M; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillText('Lyrics from LRCLIB', cx, top + h*0.97); g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; }
+  { const sn = songNow(), msg = !settings.lyrics ? '' : !sn ? 'No song linked: open a file, or use the Afterglow link bookmark on Apple Music'
+      : LYR.state === 'loading' ? 'Looking up lyrics for ' + LYR.song + '…' : LYR.state === 'none' ? 'No lyrics found for ' + LYR.song
+      : LYR.state === 'error' ? "Couldn't reach the lyrics site (LRCLIB) for " + LYR.song
+      : 'Lyrics from LRCLIB · ' + (ly ? 'synced' : LYR.state === 'synced' ? 'synced, waiting for the song position' : 'not synced') + ' · ' + LYR.song;
+    if (msg){ g.font = '500 12px ' + FONT_M; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillText(msg, cx, top + h*0.97); g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; } }
+  if (false){ g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; }
   if (TYP.ding > 0.02){ g.font = '800 ' + Math.round(fs*2*(1 + (1 - TYP.ding)*0.4)) + 'px ' + FONT_D; g.textAlign = 'center'; g.fillStyle = col(0.9, TYP.ding); g.fillText('DING!', W*0.82, top + h*0.2); }
   TYP.strike *= Math.pow(0.8, k); TYP.ding *= Math.pow(0.96, k);
 }
