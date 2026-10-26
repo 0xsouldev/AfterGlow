@@ -394,6 +394,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
     <input type="text" id="customText" maxlength="24" placeholder="AFTERGLOW" autocomplete="off" spellcheck="false">
     <p class="shint">Shows on Classic Bars, the Vinyl label, Particle Text, the LED Board, Neon Sign, Typewriter, Karaoke Ball and Marching Band. Leave it empty for Afterglow.</p>
     <div class="tog"><span><b>Use the song name</b><em>Swap your text for the name of the song playing, when it's a file you opened. Apple Music in another tab can't share its song name with this page, so your text is used then.</em></span><button class="btn togb" data-tog="songText" aria-pressed="false">Off</button></div>
+    <div class="tog"><span><b>Typewriter types the lyrics</b><em>Looks up the playing song's lyrics on LRCLIB, a free lyrics database, and types them out. Needs the song name (a file, or the Apple Music link) and an internet connection; falls back to your text.</em></span><button class="btn togb" data-tog="lyrics" aria-pressed="true">On</button></div>
     <label class="shead" style="margin-top:14px;display:block">Apple Music link</label>
     <a class="btn" id="bmLink" href="#" draggable="true" style="display:inline-flex;margin-top:6px">♪ Afterglow link</a>
     <p class="shint" id="bmHint">Drag this button to your bookmarks bar. On the Apple Music tab, click that bookmark: it opens Afterglow and keeps sending it the song name. Then pick <em>Tab or system</em> here and share the Apple Music tab. Needs "Use the song name" on.</p>
@@ -429,7 +430,7 @@ const PAL_KEYS = Object.keys(PALETTES);
 const MODES = ['orbit','ridge','spectrum','scope','warp','galaxy','synth','kaleido','lava','hyper','fireworks','city','dna','fire','rain','sphere','chrome','aurora','ink','ripples','classic','mandala','lightning','vinyl','hifi','cymatics','blackhole','plexus','spectro','strings','ecg','radar','lasers','trip','tunnel','ptext','topo','pendulum','tree','sunflower','hex','led','bubbles','jelly','blocks','pads','floor','sub','step','bounce','cube','invaders','snake','domino','glass','slots','neon','pinball','mosh','seismo','type','highway','koi','slinky','origami','fairy','flag','karaoke','march','cam'];
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Typewriter', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam' };
 
-const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
+const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
 try {
   const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -443,7 +444,7 @@ try {
     if (Array.isArray(s.autoSkip)) settings.autoSkip = MODES.filter(m => s.autoSkip.includes(m));
     if (typeof s.text === 'string') settings.text = s.text.slice(0, 24);
     if ([2, 4, 8].includes(s.cymEvery)) settings.cymEvery = s.cymEvery;
-    for (const k of ['agc', 'xfade', 'autoDrop', 'songText']) if (typeof s[k] === 'boolean') settings[k] = s[k];
+    for (const k of ['agc', 'xfade', 'autoDrop', 'songText', 'lyrics']) if (typeof s[k] === 'boolean') settings[k] = s[k];
     if (['auto', 'kick', 'snare', 'all'].includes(s.beatSrc)) settings.beatSrc = s.beatSrc;
     if (s.fx && typeof s.fx === 'object') settings.fx = { drops: s.fx.drops !== false, vhs: s.fx.vhs === true, mirror: [0, 2, 4].includes(s.fx.mirror) ? s.fx.mirror : 0, glow: s.fx.glow === true };
   }
@@ -1577,14 +1578,14 @@ function fitFont(txt, weight, size, family, maxW){
 const FONT_D = '"Bricolage Grotesque", system-ui, sans-serif', FONT_M = '"JetBrains Mono", ui-monospace, monospace';
 // the text the text modes show: the playing song's name if that option is on and we know it, else your own text.
 // The name comes from the file you opened, or from the Apple Music tab through the "Afterglow link" bookmark
-let songName = '', linkedSong = '', linkedAt = 0;
+let songName = '', linkedSong = '', linkedArtist = '', linkedAt = 0;
 function textSource(){ const live = linkedSong && performance.now() - linkedAt < 10000 ? linkedSong : ''; return (settings.songText && (songName || live)) ? (songName || live) : (settings.text || '').trim(); }
 window.addEventListener('message', e => {   // only Apple Music pages are listened to, and only a song title is taken
   const d = e.data;
   if (!/^https:\/\/([a-z0-9-]+\.)?music\.apple\.com$/.test(e.origin) || !d || d.afterglow !== 'song' || typeof d.title !== 'string') return;
   const t = d.title.replace(/\s+/g, ' ').trim().slice(0, 40); if (!t) return;
   if (t !== linkedSong && settings.songText) toast('Now playing: ' + t, 2200);
-  linkedSong = t; linkedAt = performance.now();
+  linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
 });
 function bookmarkletFor(url){   // runs on the Apple Music tab: opens Afterglow, then sends it the song name every 2 s
   const code = `(()=>{const U=${JSON.stringify(url)},O=new URL(U).origin;let w=window.__agW;if(!w||w.closed)w=window.__agW=window.open(U,'afterglow');clearInterval(window.__agT);const send=()=>{const w=window.__agW;if(!w||w.closed){clearInterval(window.__agT);return;}const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'';if(!t){t=document.title.replace(/\s*[-–—|]\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}if(t)w.postMessage({afterglow:'song',title:t,artist:(m&&m.artist)||''},O);};send();window.__agT=setInterval(send,2000);})()`;
@@ -2995,19 +2996,46 @@ function drawSeismo(){
   SEIS.quake *= Math.pow(0.985, k);
 }
 
+// Lyrics for the Typewriter, looked up on LRCLIB (lrclib.net, free, no key) by song name, once per song.
+// Only the song name and artist are sent. If it can't be reached (offline, or blocked), the Typewriter uses your text
+const LYR = { key: '', text: '' };
+function songNow(){
+  if (songName){ const m = songName.split(/\s+-\s+/); return m.length >= 2 ? { title: m.slice(1).join(' - '), artist: m[0] } : { title: songName, artist: '' }; }
+  if (linkedSong && performance.now() - linkedAt < 10000) return { title: linkedSong, artist: linkedArtist };
+  return null;
+}
+function lyricsNow(){
+  const s = settings.lyrics && songNow(); if (!s) return '';
+  const key = (s.title + '|' + s.artist).toLowerCase();
+  if (LYR.key !== key){
+    LYR.key = key; LYR.text = '';
+    fetch('https://lrclib.net/api/search?q=' + encodeURIComponent((s.title + ' ' + s.artist).trim()))
+      .then(r => r.ok ? r.json() : []).then(list => {
+        if (LYR.key !== key || !Array.isArray(list)) return;
+        const hit = list.find(x => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics));
+        if (hit) LYR.text = (hit.plainLyrics || hit.syncedLyrics.replace(/\[[^\]]*\]\s?/g, '')).replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim();
+      }).catch(() => {});
+  }
+  return LYR.text;
+}
 // Typewriter: your custom text gets typed out one key per hi-hat (or snare), with a carriage return at the end of
 // every bar. The paper slides along as it types, and the drop rings the bell: DING
 const TYP = { lines: [''], ci: 0, beats: 0, strike: 0, ding: 0, arm: true };
 function drawType(){
-  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, src = brandText() + ' · ', fs = Math.round(Math.min(h*0.075, W*0.055));
-  g.font = '600 ' + fs + 'px ' + FONT_M; const cwid = g.measureText('M').width, maxC = Math.max(8, Math.floor(W*0.8/cwid));
-  const type = () => { let L = TYP.lines[TYP.lines.length - 1]; if (L.length >= maxC){ TYP.lines.push(''); L = ''; } TYP.lines[TYP.lines.length - 1] = L + src[TYP.ci++ % src.length]; TYP.strike = 1; };
-  if (F.hatNow || F.snareNow) type();
-  if (F.beatNow && ++TYP.beats % 4 === 0 && TYP.lines[TYP.lines.length - 1].length) TYP.lines.push('');
+  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, lyr = lyricsNow(), src = lyr ? lyr + '\n\n' : brandText() + ' · ', fs = Math.round(Math.min(h*0.075, W*0.055));
+  if (TYP.src !== src){ TYP.src = src; TYP.ci = 0; TYP.lines = ['']; }
+  g.font = '600 ' + fs + 'px ' + FONT_M; const cwid = g.measureText('M').width, maxC = Math.max(8, Math.floor(W*0.82/cwid));
+  const type = () => {
+    let L = TYP.lines[TYP.lines.length - 1]; const ch = src[TYP.ci++ % src.length];
+    if (ch === '\n'){ if (L.length) TYP.lines.push(''); return; }
+    if (L.length >= maxC){ TYP.lines.push(''); L = ''; } TYP.lines[TYP.lines.length - 1] = L + ch; TYP.strike = 1;
+  };
+  if (F.hatNow || F.snareNow){ type(); if (lyr) type(); }   // lyrics are long, so two keys per hit
+  if (!lyr && F.beatNow && ++TYP.beats % 4 === 0 && TYP.lines[TYP.lines.length - 1].length) TYP.lines.push('');
   if (TYP.lines.length > 7) TYP.lines.shift();
   if (F.drop > 0.95 && TYP.arm){ TYP.arm = false; TYP.ding = 1; } else if (F.drop < 0.5) TYP.arm = true;
   fade(0.7);
-  const cur = TYP.lines[TYP.lines.length - 1], px = cx - cur.length*cwid, lh = fs*1.5, baseY = top + h*0.62;
+  const cur = TYP.lines[TYP.lines.length - 1], px = Math.max(W*0.08, cx - cur.length*cwid), lh = fs*1.5, baseY = top + h*0.62;
   g.fillStyle = '#efe9dc'; g.fillRect(px - cwid*2, top + h*0.08, maxC*cwid + cwid*4, h*0.7);   // the paper, sliding left as it types
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   TYP.lines.forEach((L, i) => {
@@ -3015,9 +3043,10 @@ function drawType(){
     g.fillStyle = '#1e1c24'; g.fillText(L, px, y);
   });
   if (cur.length && TYP.strike > 0.02){ const ch = cur[cur.length - 1]; g.font = '600 ' + Math.round(fs*(1 + TYP.strike*0.35)) + 'px ' + FONT_M; g.fillStyle = col(0.1, 0.9); g.fillText(ch, px + (cur.length - 1)*cwid - TYP.strike*fs*0.08, baseY); g.font = '600 ' + fs + 'px ' + FONT_M; }
-  if ((T*2 % 1) < 0.5){ g.fillStyle = col(0.1, 0.9); g.fillRect(cx + 1, baseY - fs*0.85, 2, fs); }   // caret
+  if ((T*2 % 1) < 0.5){ g.fillStyle = col(0.1, 0.9); g.fillRect(px + cur.length*cwid + 1, baseY - fs*0.85, 2, fs); }   // caret
   g.fillStyle = '#22212b'; rr(cx - W*0.4, top + h*0.8, W*0.8, h*0.12, 14); g.fill();   // the machine
   g.fillStyle = col(0.5, 0.5 + F.kickEnv*0.5); for (let i = 0; i < 12; i++){ g.beginPath(); g.arc(cx - W*0.33 + i*W*0.06, top + h*0.86, Math.min(W, h)*0.016*(1 + (i === (TYP.ci % 12) ? TYP.strike*0.6 : 0)), 0, Math.PI*2); g.fill(); }
+  if (lyr){ g.font = '500 11px ' + FONT_M; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillText('Lyrics from LRCLIB', cx, top + h*0.97); g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; }
   if (TYP.ding > 0.02){ g.font = '800 ' + Math.round(fs*2*(1 + (1 - TYP.ding)*0.4)) + 'px ' + FONT_D; g.textAlign = 'center'; g.fillStyle = col(0.9, TYP.ding); g.fillText('DING!', W*0.82, top + h*0.2); }
   TYP.strike *= Math.pow(0.8, k); TYP.ding *= Math.pow(0.96, k);
 }
