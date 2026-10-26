@@ -3439,21 +3439,46 @@ const NJK = ['aF', 'aB', 'lF', 'lB'];
 function njBlend(a, b, t){ const o = { lean: a.lean + (b.lean - a.lean)*t, sw: b.sw === null ? null : (a.sw === null ? b.sw : a.sw + (b.sw - a.sw)*t) }; for (const q of NJK) o[q] = [a[q][0] + (b[q][0] - a[q][0])*t, a[q][1] + (b[q][1] - a[q][1])*t]; return o; }
 function njCopy(p){ return njBlend(p, p, 0); }
 function njTip(x, y, s, J, dir){
-  const up = -Math.PI/2 + J.lean, ex = Math.cos(up)*0.75*s + Math.cos(J.aF[0])*0.4*s, ey = Math.sin(up)*0.75*s + Math.sin(J.aF[0])*0.4*s, hx = ex + Math.cos(J.aF[1])*0.38*s, hy = ey + Math.sin(J.aF[1])*0.38*s;
-  return [x + dir*(hx + Math.cos(J.sw)*1.05*s), y + hy + Math.sin(J.sw)*1.05*s];
+  const up = -Math.PI/2 + J.lean, ex = Math.cos(up)*0.72*s + Math.cos(J.aF[0])*0.4*s, ey = Math.sin(up)*0.72*s + Math.sin(J.aF[0])*0.4*s, hx = ex + Math.cos(J.aF[1])*0.38*s, hy = ey + Math.sin(J.aF[1])*0.38*s;
+  return [x + dir*(hx + Math.cos(J.sw)*1.2*s), y + hy + Math.sin(J.sw)*1.2*s];
+}
+function njKatana(hx, hy, a, s, ink){   // wrapped handle, round guard, curved silver blade tapering to a point
+  const ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux, P = (t, o) => [hx + ux*t*s + nx*o*s, hy + uy*t*s + ny*o*s];
+  g.lineCap = 'round'; g.strokeStyle = ink; g.lineWidth = Math.max(2.5, s*0.075);
+  const h0 = P(-0.28, 0), h1 = P(0.02, 0); g.beginPath(); g.moveTo(h0[0], h0[1]); g.lineTo(h1[0], h1[1]); g.stroke();   // handle
+  g.strokeStyle = '#6d6d74'; g.lineWidth = Math.max(1, s*0.018); g.beginPath(); for (let t = -0.24; t < 0; t += 0.07){ const p0 = P(t, -0.035), p1 = P(t + 0.035, 0.035); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); } g.stroke();   // the wrap
+  const gd = P(0.03, 0); g.fillStyle = ink; g.beginPath(); g.ellipse(gd[0], gd[1], s*0.03, s*0.085, a, 0, Math.PI*2); g.fill();   // guard
+  const L = 1.12, pts = [];   // blade: a gentle curve (more at the tip), wide at the base, sharp point
+  for (let i = 0; i <= 12; i++){ const t = i/12, c = 0.06*t*t; pts.push([P(0.06 + t*L, -c), 0.024*(1 - t*0.7)]); }
+  g.beginPath();
+  pts.forEach(([p, w], i) => { const q = [p[0] + nx*w*s, p[1] + ny*w*s]; i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); });
+  const tip = P(0.06 + L + 0.06, -0.08); g.lineTo(tip[0], tip[1]);
+  for (let i = pts.length - 1; i >= 0; i--){ const [p, w] = pts[i]; g.lineTo(p[0] - nx*w*s, p[1] - ny*w*s); }
+  g.closePath();
+  const bg = g.createLinearGradient(pts[0][0][0] - nx*s*0.03, pts[0][0][1] - ny*s*0.03, pts[0][0][0] + nx*s*0.03, pts[0][0][1] + ny*s*0.03);
+  bg.addColorStop(0, '#9aa0aa'); bg.addColorStop(0.5, '#f4f6fa'); bg.addColorStop(1, '#c4c8d0');
+  g.fillStyle = bg; g.fill(); g.strokeStyle = ink; g.lineWidth = Math.max(1, s*0.012); g.stroke();
 }
 function njFig(x, y, s, J, ink, headR, dir, rot, alpha){
   g.save(); g.translate(x, y); g.rotate(rot || 0); g.scale(dir, 1); g.globalAlpha = alpha == null ? 1 : alpha;
-  const up = -Math.PI/2 + J.lean, nx = Math.cos(up)*0.85*s, ny = Math.sin(up)*0.85*s, sx = Math.cos(up)*0.75*s, sy = Math.sin(up)*0.75*s;
-  const hd = 0.85 + headR*0.95, hx = Math.cos(up)*hd*s, hy = Math.sin(up)*hd*s;
-  const limb = (ox, oy, [u, l], L1, L2) => { const ex = ox + Math.cos(u)*L1, ey = oy + Math.sin(u)*L1; return [[ox, oy], [ex, ey], [ex + Math.cos(l)*L2, ey + Math.sin(l)*L2]]; };
-  const parts = [[[0, 0], [nx, ny]], limb(sx, sy, J.aF, 0.4*s, 0.38*s), limb(sx, sy, J.aB, 0.4*s, 0.38*s), limb(0, 0, J.lF, 0.47*s, 0.47*s), limb(0, 0, J.lB, 0.47*s, 0.47*s)];
-  const hand = parts[1][2];
+  const up = -Math.PI/2 + J.lean, ux = Math.cos(up), uy = Math.sin(up);
+  const sh = [ux*0.72*s, uy*0.72*s], hd = 0.95 + headR*0.95, hx = ux*hd*s, hy = uy*hd*s;
+  const limb = (o, [u, l], L1, L2) => { const e = [o[0] + Math.cos(u)*L1, o[1] + Math.sin(u)*L1]; return [o, e, [e[0] + Math.cos(l)*L2, e[1] + Math.sin(l)*L2]]; };
+  const aF = limb(sh, J.aF, 0.4*s, 0.38*s), aB = limb(sh, J.aB, 0.4*s, 0.38*s), lF = limb([0, 0], J.lF, 0.47*s, 0.47*s), lB = limb([0, 0], J.lB, 0.47*s, 0.47*s);
   g.strokeStyle = ink; g.fillStyle = ink; g.lineCap = 'round'; g.lineJoin = 'round';
-  if (J.sw !== null){ g.lineWidth = Math.max(1.5, s*0.035); g.beginPath(); g.moveTo(hand[0] - Math.cos(J.sw)*0.12*s, hand[1] - Math.sin(J.sw)*0.12*s); g.lineTo(hand[0] + Math.cos(J.sw)*1.1*s, hand[1] + Math.sin(J.sw)*1.1*s); g.stroke(); }   // the katana
-  g.lineWidth = Math.max(2, s*0.1); g.beginPath();
-  for (const pts of parts){ g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); }
-  g.stroke(); g.beginPath(); g.arc(hx, hy, headR*s, 0, Math.PI*2); g.fill();
+  const seg = (p, q, w) => { g.lineWidth = w; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke(); };
+  const drawLimb = (L, w1, w2) => { seg(L[0], L[1], w1); seg(L[1], L[2], w2); g.beginPath(); g.arc(L[1][0], L[1][1], (w1 + w2)/4, 0, Math.PI*2); g.fill(); };
+  drawLimb(aB, s*0.15, s*0.12); drawLimb(lB, s*0.19, s*0.15);   // far side first
+  // torso: tapered, broad at the chest, narrower at the hips
+  const px = -uy, py = ux, cw = s*0.17, hw = s*0.12, c = [ux*0.62*s, uy*0.62*s];
+  g.beginPath(); g.moveTo(c[0] + px*cw, c[1] + py*cw); g.quadraticCurveTo(px*hw*1.15 + ux*0.3*s, py*hw*1.15 + uy*0.3*s, px*hw, py*hw);
+  g.arc(0, 0, hw, Math.atan2(py, px), Math.atan2(py, px) + Math.PI, false);
+  g.quadraticCurveTo(-px*hw*1.15 + ux*0.3*s, -py*hw*1.15 + uy*0.3*s, c[0] - px*cw, c[1] - py*cw);
+  g.arc(c[0], c[1], cw, Math.atan2(-py, -px), Math.atan2(-py, -px) + Math.PI, false); g.closePath(); g.fill();
+  seg(c, [ux*0.92*s, uy*0.92*s], s*0.11);   // neck
+  drawLimb(lF, s*0.19, s*0.15); drawLimb(aF, s*0.15, s*0.12);
+  g.beginPath(); g.arc(hx, hy, headR*s, 0, Math.PI*2); g.fill();
+  if (J.sw !== null) njKatana(aF[2][0], aF[2][1], J.sw, s, ink);
   g.restore(); g.globalAlpha = 1;
 }
 function drawNinja(){
@@ -3504,14 +3529,19 @@ function drawNinja(){
   blendTo(NJ.jv, vT, Math.min(1, 0.18*k));
   NJ.flail = NJ.flail.map(v => v*Math.pow(0.93, k)); NJ.land *= Math.pow(0.9, k);
   g.fillStyle = '#9a9a9a'; g.fillRect(0, top - 2, W, ground - top + 2); g.fillStyle = '#000'; g.fillRect(0, ground, W, bot - ground + 2);   // grey sky, black ground
+  g.save(); g.beginPath(); g.rect(0, top, W, ground - top); g.clip();   // effects stay in the sky, never on the ground or the top bar
   for (let i = NJ.cuts.length - 1; i >= 0; i--){ const c = NJ.cuts[i]; c.l -= 0.05*k; if (c.l <= 0){ NJ.cuts.splice(i, 1); continue; } const dx = Math.cos(c.a)*c.len/2, dy = Math.sin(c.a)*c.len/2; g.strokeStyle = 'rgba(255,255,255,' + (c.l*0.5).toFixed(3) + ')'; g.lineWidth = 1 + c.l*5; g.beginPath(); g.moveTo(c.x - dx, c.y - dy); g.lineTo(c.x + dx, c.y + dy); g.stroke(); g.strokeStyle = 'rgba(255,255,255,' + (c.l*0.9).toFixed(3) + ')'; g.lineWidth = 1 + c.l*1.5; g.stroke(); }
-  { const tr = NJ.trail.filter(q => NJ.t - q.t < 0.35), n = tr.length;   // crescent: thick in the middle, thin at both ends, fading out
-    for (let i = 1; i < n; i++){ const age = NJ.t - tr[i].t, f = Math.sin(Math.PI*i/(n - 1 || 1))*(1 - age/0.35); if (f <= 0) continue;
-      g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,' + (f*0.85).toFixed(3) + ')'; g.lineWidth = Math.max(1, s*0.3*f); g.beginPath(); g.moveTo(tr[i - 1].p[0], tr[i - 1].p[1]); g.lineTo(tr[i].p[0], tr[i].p[1]); g.stroke();
-      g.strokeStyle = 'rgba(255,255,255,' + (f*0.9).toFixed(3) + ')'; g.lineWidth = Math.max(1, s*0.08*f); g.stroke(); }
-    g.lineCap = 'butt'; }
+  { const tr = NJ.trail.filter(q => NJ.t - q.t < 0.35), n = tr.length;   // crescent: one smooth shape, thick in the middle, thin at both ends, fading
+    if (n > 2){
+      const fade = Math.max(0, 1 - (NJ.t - tr[n - 1].t)/0.35), L = [], R = [];
+      for (let i = 0; i < n; i++){ const p = tr[i].p, q0 = tr[Math.max(0, i - 1)].p, q1 = tr[Math.min(n - 1, i + 1)].p, dx = q1[0] - q0[0], dy = q1[1] - q0[1], d = Math.hypot(dx, dy) || 1, w = s*0.17*Math.sin(Math.PI*i/(n - 1));
+        L.push([p[0] - dy/d*w, p[1] + dx/d*w]); R.push([p[0] + dy/d*w*0.25, p[1] - dx/d*w*0.25]); }
+      g.fillStyle = 'rgba(255,255,255,' + (fade*0.9).toFixed(3) + ')'; g.beginPath(); g.moveTo(L[0][0], L[0][1]);
+      for (const q of L) g.lineTo(q[0], q[1]); for (let i = R.length - 1; i >= 0; i--) g.lineTo(R[i][0], R[i][1]); g.closePath(); g.fill();
+    } }
   for (let i = NJ.fx.length - 1; i >= 0; i--){ const e = NJ.fx[i]; e.x += e.vx*k; e.y += e.vy*k; e.vy += 0.2*k; e.l -= 0.035*k; if (e.l <= 0){ NJ.fx.splice(i, 1); continue; } g.fillStyle = 'rgba(255,255,255,' + e.l.toFixed(3) + ')'; g.fillRect(e.x - 1.5, e.y - 1.5, 3, 3); }
-  for (let i = NJ.ghosts.length - 1; i >= 0; i--){ const q = NJ.ghosts[i]; q.l -= 0.05*k; if (q.l <= 0){ NJ.ghosts.splice(i, 1); continue; } njFig(q.x, q.y, s, q.J, '#000', 0.27, q.dir, 0, q.l*0.35); }   // afterimage where the attacker teleported from
+  for (let i = NJ.ghosts.length - 1; i >= 0; i--){ const q = NJ.ghosts[i]; q.l -= 0.05*k; if (q.l <= 0){ NJ.ghosts.splice(i, 1); continue; } const gv = Math.round(154*(1 - q.l*0.45)); njFig(q.x, q.y, s, q.J, 'rgb(' + gv + ',' + gv + ',' + gv + ')', 0.27, q.dir, 0, 1); }   // afterimage where the attacker teleported from
+  g.restore();
   njFig(vX(), vY(), s, NJ.jv, '#000', 0.48, NJ.side > 0 ? 1 : -1, NJ.rot);   // the victim, with the big head
   njFig(NJ.ax, NJ.ay, s, NJ.ja, '#000', 0.27, -NJ.side, 0);   // the slasher, always facing the victim
   { const z = 1 + NJ.pop*0.35, cyc = ground + (bot - ground)*0.32;   // the hit counter, down in the black ground
