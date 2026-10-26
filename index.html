@@ -398,6 +398,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
     <div class="tog"><span><b>Typewriter types the lyrics</b><em>Looks up the playing song's lyrics on LRCLIB, a free lyrics database, and types them out. Needs the song name (a file, or the Apple Music link) and an internet connection; falls back to your text.</em></span><button class="btn togb" data-tog="lyrics" aria-pressed="true">On</button></div>
     <label class="shead" style="margin-top:14px;display:block">Apple Music link</label>
     <a class="btn" id="bmLink" href="#" draggable="true" style="display:inline-flex;margin-top:6px">♪ Afterglow link</a>
+    <a class="btn" id="bmInspect" href="#" draggable="true" style="display:inline-flex;margin-top:6px;margin-left:6px">🔍 Lyrics inspector</a>
     <p class="shint" id="bmHint">Drag this button to your bookmarks bar. On the Apple Music tab, click that bookmark: it opens Afterglow and keeps sending it the song name. Then pick <em>Tab or system</em> here and share the Apple Music tab. Needs "Use the song name" on.</p>
   </div>
 </aside>
@@ -1598,6 +1599,21 @@ window.addEventListener('message', e => {   // only Apple Music pages are listen
   } else APL.lines = [];
   LINK.pos = typeof d.pos === 'number' && isFinite(d.pos) && d.pos >= 0 ? d.pos : null; LINK.playing = d.playing === true; LINK.dur = typeof d.dur === 'number' && isFinite(d.dur) ? d.dur : 0; LINK.at = linkedAt;
 });
+function inspectorBookmarklet(){   // one-off: snapshots how Apple Music's lyrics part of the page is built, so the link can be tuned to it
+  const code = `(()=>{const out=[],cls=e=>(typeof e.className==='string'?e.className:(e.getAttribute&&e.getAttribute('class'))||''),own=e=>[...e.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').replace(/\\s+/g,' ').trim(),cut=(t,n)=>t.length>n?t.slice(0,n)+'…':t;
+const all=[];const go=(r,d)=>{for(const el of r.children){all.push(el);if(el.shadowRoot)go(el.shadowRoot,d+1);go(el,d+1);}};go(document,0);
+out.push('AFTERGLOW LYRICS SNAPSHOT · '+location.pathname+' · '+all.length+' elements · '+all.filter(e=>e.shadowRoot).length+' hidden roots · iframes '+document.querySelectorAll('iframe').length);
+try{const mk=window.MusicKit&&MusicKit.getInstance();out.push('MusicKit: '+(mk?'yes, time '+mk.currentPlaybackTime+', playing '+mk.isPlaying:'no'));}catch(e){out.push('MusicKit error '+e.message);}
+const ms=navigator.mediaSession&&navigator.mediaSession.metadata;out.push('mediaSession: '+(ms?ms.title+' / '+ms.artist:'none'));
+const ly=all.filter(e=>/lyric/i.test(cls(e)+' '+e.tagName));out.push('');out.push('ELEMENTS NAMED LYRIC ('+ly.length+'):');ly.slice(0,40).forEach(e=>out.push('  <'+e.tagName.toLowerCase()+'> .'+cut(cls(e),70)+' kids '+e.children.length+(e.shadowRoot?' +hidden '+e.shadowRoot.children.length:'')+' text '+((e.innerText||e.textContent||'').length)));
+const cand=all.map(e=>{const ks=[...e.children,...(e.shadowRoot?e.shadowRoot.children:[])],tx=ks.filter(k=>{const t=(k.innerText||k.textContent||'').trim();return t.length>2&&t.length<160;});return[e,tx];}).filter(x=>x[1].length>=5).sort((a,b)=>b[1].length-a[1].length).slice(0,4);
+out.push('');out.push('BIGGEST GROUPS OF TEXT ROWS:');cand.forEach(([e,tx])=>{let p=[],x=e;for(let i=0;i<5&&x;i++){p.unshift(x.tagName.toLowerCase()+(cls(x)?'.'+cut(cls(x).split(' ')[0],30):''));x=x.parentElement||(x.getRootNode&&x.getRootNode().host);}out.push('  '+tx.length+' rows in '+p.join(' > '));tx.slice(0,4).forEach(k=>{let st={};try{st=getComputedStyle(k);}catch(z){}out.push('     row <'+k.tagName.toLowerCase()+'> .'+cut(cls(k),60)+' | opacity '+st.opacity+' | '+cut((k.innerText||k.textContent||'').replace(/\\s+/g,' ').trim(),18)+(k.getAttribute('aria-current')?' aria-current':'')+(k.getAttribute('data-testid')?' testid='+k.getAttribute('data-testid'):''));});});
+const box=ly.find(e=>/container|platter|sidebar|lyrics\\b/i.test(cls(e)))||ly[0];if(box){out.push('');out.push('INSIDE '+cut(cls(box),50)+':');let n=0;const dump=(el,d)=>{if(n++>70||d>7)return;out.push('  '.repeat(d+1)+'<'+el.tagName.toLowerCase()+'>'+(cls(el)?' .'+cut(cls(el),45):'')+(own(el)?' \"'+cut(own(el),18)+'\"':'')+(el.shadowRoot?' [hidden root]':''));for(const c of [...(el.shadowRoot?el.shadowRoot.children:[]),...el.children])dump(c,d+1);};dump(box,0);}
+const txt=out.join('\\n');const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;z-index:2147483647;inset:5% 10%;width:80%;height:80%;font:12px monospace;background:#111;color:#eee;padding:12px;border:2px solid #f60';document.body.appendChild(ta);ta.select();
+let ok=false;try{ok=document.execCommand('copy');}catch(e){}if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>{},()=>{});
+const tip=document.createElement('div');tip.textContent=(ok?'Copied! ':'Select all and copy, then ')+'paste it to Claude. Click here to close.';tip.style.cssText='position:fixed;z-index:2147483647;top:1%;left:10%;right:10%;background:#f60;color:#000;font:bold 14px sans-serif;padding:8px;cursor:pointer;text-align:center';tip.onclick=()=>{ta.remove();tip.remove();};document.body.appendChild(tip);})()`;
+  return 'javascript:' + encodeURIComponent(code);
+}
 function bookmarkletFor(url){   // runs on the Apple Music tab: opens Afterglow, then twice a second sends the song name, where the song is up to and, if the lyrics view is open, its lines and which one is highlighted
   const code = `(()=>{const U=${JSON.stringify(url)},O=new URL(U).origin;let w=window.__agW;if(!w||w.closed)w=window.__agW=window.open(U,'afterglow');clearInterval(window.__agT);let box=null,sig='',n=0;
 const cls=e=>(typeof e.className==='string'?e.className:(e.getAttribute&&e.getAttribute('class'))||'');
@@ -4063,7 +4079,8 @@ $('#poolAll').addEventListener('click', () => { settings.autoSkip = []; autoBag 
 $('#poolNone').addEventListener('click', () => { settings.autoSkip = MODES.slice(); autoBag = []; syncSettingsPanel(); save(); });
 ctext.addEventListener('input', () => { settings.text = ctext.value.slice(0, 24); save(); });
 { const bm = $('#bmLink'), url = location.href.split('#')[0], ok = location.protocol === 'https:' && window.top === window;
-  bm.href = bookmarkletFor(url);
+  bm.href = bookmarkletFor(url); const bi = $('#bmInspect'); bi.href = inspectorBookmarklet();
+  bi.addEventListener('click', e => { e.preventDefault(); toast('Drag this to your bookmarks bar, then click it on Apple Music with the lyrics view open', 3600); });
   bm.addEventListener('click', e => { e.preventDefault(); toast('Drag this button to your bookmarks bar, then click it on the Apple Music tab', 3200); });
   if (!ok) $('#bmHint').textContent = 'This only works when Afterglow is opened from its own web link (like your GitHub Pages site), not from the Claude preview or a file on your computer.'; }
 function syncSettingsPanel(){
