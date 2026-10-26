@@ -308,6 +308,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
           <button class="btn" data-mode="karaoke" aria-pressed="false">Karaoke Ball</button>
           <button class="btn" data-mode="march" aria-pressed="false">Marching Band</button>
           <button class="btn" data-mode="cam" aria-pressed="false">Mirror Cam</button>
+          <button class="btn" data-mode="ninja" aria-pressed="false">Ninja Slash</button>
         </div>
         <div class="group" role="group" aria-label="Effects" id="fxGroup">
           <span class="glabel">FX</span>
@@ -427,8 +428,8 @@ const PALETTES = {
   gold:    { name:'Gold',    bg:'#0a0805', stops:['#7a4b0c','#c8891b','#ffd76a','#fff8e1'] },
 };
 const PAL_KEYS = Object.keys(PALETTES);
-const MODES = ['orbit','ridge','spectrum','scope','warp','galaxy','synth','kaleido','lava','hyper','fireworks','city','dna','fire','rain','sphere','chrome','aurora','ink','ripples','classic','mandala','lightning','vinyl','hifi','cymatics','blackhole','plexus','spectro','strings','ecg','radar','lasers','trip','tunnel','ptext','topo','pendulum','tree','sunflower','hex','led','bubbles','jelly','blocks','pads','floor','sub','step','bounce','cube','invaders','snake','domino','glass','slots','neon','pinball','mosh','seismo','type','highway','koi','slinky','origami','fairy','flag','karaoke','march','cam'];
-const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Typewriter', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam' };
+const MODES = ['orbit','ridge','spectrum','scope','warp','galaxy','synth','kaleido','lava','hyper','fireworks','city','dna','fire','rain','sphere','chrome','aurora','ink','ripples','classic','mandala','lightning','vinyl','hifi','cymatics','blackhole','plexus','spectro','strings','ecg','radar','lasers','trip','tunnel','ptext','topo','pendulum','tree','sunflower','hex','led','bubbles','jelly','blocks','pads','floor','sub','step','bounce','cube','invaders','snake','domino','glass','slots','neon','pinball','mosh','seismo','type','highway','koi','slinky','origami','fairy','flag','karaoke','march','cam','ninja'];
+const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Typewriter', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash' };
 
 const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
@@ -3046,9 +3047,9 @@ function lyricsNow(){
 // every bar. The paper slides along as it types, and the drop rings the bell: DING
 const TYP = { lines: [''], ci: 0, beats: 0, strike: 0, ding: 0, arm: true };
 function drawType(){
-  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, lyr = lyricsNow(), src = lyr ? lyr + '\n\n' : brandText() + ' · ', fs = Math.round(Math.min(h*0.075, W*0.055));
+  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, lyr = lyricsNow(), src = lyr ? lyr + '\n\n' : brandText() + ' · ', pw = Math.min(W*0.64, h*1.15), fs = Math.round(Math.max(11, Math.min(h*0.042, pw/26)));
   if (TYP.src !== src){ TYP.src = src; TYP.ci = 0; TYP.lines = ['']; }
-  g.font = '600 ' + fs + 'px ' + FONT_M; const cwid = g.measureText('M').width, maxC = Math.max(8, Math.floor(W*0.82/cwid));
+  g.font = '600 ' + fs + 'px ' + FONT_M; const cwid = g.measureText('M').width, maxC = Math.max(8, Math.floor(pw*0.86/cwid));
   const type = () => {
     let L = TYP.lines[TYP.lines.length - 1]; const ch = src[TYP.ci++ % src.length];
     if (ch === '\n'){ if (L.length) TYP.lines.push(''); return; }
@@ -3067,25 +3068,61 @@ function drawType(){
   if (!lyr && F.beatNow && ++TYP.beats % 4 === 0 && TYP.lines[TYP.lines.length - 1].length) TYP.lines.push('');
   if (TYP.lines.length > 7) TYP.lines.shift();
   if (F.drop > 0.95 && TYP.arm){ TYP.arm = false; TYP.ding = 1; } else if (F.drop < 0.5) TYP.arm = true;
-  fade(0.7);
-  const cur = TYP.lines[TYP.lines.length - 1], px = ly ? W*0.09 : Math.max(W*0.08, cx - cur.length*cwid), lh = fs*1.5, baseY = top + h*0.62;
-  g.fillStyle = '#efe9dc'; g.fillRect(px - cwid*2, top + h*0.08, maxC*cwid + cwid*4, h*0.7);   // the paper, sliding left as it types
-  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  TYP.lines.forEach((L, i) => {
-    const y = baseY - (TYP.lines.length - 1 - i)*lh; if (y < top + h*0.1) return;
-    g.fillStyle = '#1e1c24'; g.fillText(L, px, y);
+  fade(1);
+  const cur = TYP.lines[TYP.lines.length - 1], lh = fs*1.45, platY = top + h*0.42, ink = '#1d1b22';
+  // the carriage slides left as the line fills up, and swings back on a new line
+  const tgtOff = (0.5 - Math.min(1, cur.length/maxC))*pw*0.4; TYP.off = TYP.off == null ? tgtOff : TYP.off + (tgtOff - TYP.off)*(tgtOff > TYP.off ? 0.25 : 0.5)*k;
+  const off = TYP.off, paperX = cx - pw/2 + off, tx = paperX + pw*0.07;
+  // paper coming up out of the roller, with the lines typed so far
+  const pg = g.createLinearGradient(0, top, 0, platY); pg.addColorStop(0, 'rgba(239,233,220,0.15)'); pg.addColorStop(0.25, '#efe9dc'); pg.addColorStop(1, '#e6dfcf');
+  g.fillStyle = pg; g.fillRect(paperX, top + h*0.02, pw, platY - top - h*0.02);
+  g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  const baseY = platY - h*0.055;
+  TYP.lines.forEach((L, i) => { const y = baseY - (TYP.lines.length - 1 - i)*lh; if (y < top + h*0.06) return; g.fillStyle = ink; g.globalAlpha = y < top + h*0.12 ? 0.4 : 1; g.fillText(L, tx, y); });
+  g.globalAlpha = 1;
+  const strikeX = tx + Math.max(0, cur.length - 1)*cwid + cwid/2;
+  if (cur.length && TYP.strike > 0.3){ g.fillStyle = 'rgba(0,0,0,' + (TYP.strike*0.25).toFixed(3) + ')'; g.fillRect(strikeX - cwid*0.6, baseY - fs*0.95, cwid*1.2, fs*1.15); }   // a little ink smudge as the key hits
+  // paper bail (the bar that holds the paper down) and the platen roller with its knobs and return lever
+  const rollW = pw*1.18, rx = cx - rollW/2 + off, rh = h*0.06;
+  g.fillStyle = '#bfc3cc'; g.fillRect(rx + rollW*0.08, baseY + fs*0.45, rollW*0.84, 3); for (const q of [0.3, 0.7]){ g.beginPath(); g.arc(rx + rollW*q, baseY + fs*0.45 + 1.5, 5, 0, Math.PI*2); g.fill(); }
+  const rg = g.createLinearGradient(0, platY - rh/2, 0, platY + rh/2); rg.addColorStop(0, '#3a3a42'); rg.addColorStop(0.45, '#15151a'); rg.addColorStop(1, '#050507');
+  g.fillStyle = rg; rr(rx, platY - rh/2, rollW, rh, rh/2); g.fill();
+  for (const side of [-1, 1]){ const kx = side < 0 ? rx - rh*0.35 : rx + rollW + rh*0.35, kg = g.createRadialGradient(kx - rh*0.15, platY - rh*0.2, 2, kx, platY, rh*0.6); kg.addColorStop(0, '#5a5a66'); kg.addColorStop(1, '#101014'); g.fillStyle = kg; g.beginPath(); g.ellipse(kx, platY, rh*0.42, rh*0.62, 0, 0, Math.PI*2); g.fill(); }
+  g.strokeStyle = '#c9ccd6'; g.lineWidth = Math.max(3, h*0.008); g.lineCap = 'round'; g.beginPath(); g.moveTo(rx - rh*0.2, platY - rh*0.4); g.lineTo(rx - rh*1.6, platY - rh*1.5); g.stroke(); g.lineCap = 'butt';   // return lever
+  // the body
+  const bTop = platY + rh*0.6, bBot = top + h*0.95, wT = W*0.66, wB = Math.min(W*0.94, wT*1.35);
+  const bg = g.createLinearGradient(0, bTop, 0, bBot); bg.addColorStop(0, '#34303b'); bg.addColorStop(1, '#141218');
+  g.fillStyle = bg; g.beginPath(); g.moveTo(cx - wT/2, bTop); g.lineTo(cx + wT/2, bTop); g.lineTo(cx + wB/2, bBot); g.lineTo(cx - wB/2, bBot); g.closePath(); g.fill();
+  g.fillStyle = col(0.15, 0.5 + F.kickEnv*0.5); g.fillRect(cx - wT*0.46, bTop + h*0.012, wT*0.92, Math.max(2, h*0.006));   // accent stripe pulses on the kick
+  // typebar basket: a fan of type arms; the one for this letter swings up and hits the paper
+  const bx = cx, by = platY + h*0.17, br = h*0.13;
+  g.strokeStyle = 'rgba(200,204,214,0.35)'; g.lineWidth = 1.5; g.beginPath();
+  for (let i = 0; i <= 28; i++){ const a = Math.PI*(1.12 + i/28*0.76); g.moveTo(bx + Math.cos(a)*br*0.55, by + Math.sin(a)*br*0.55); g.lineTo(bx + Math.cos(a)*br, by + Math.sin(a)*br); }
+  g.stroke();
+  if (TYP.strike > 0.05){ const sx = cx + (strikeX - cx)*0.0, a0 = Math.PI*(1.12 + ((TYP.ci*7) % 29)/28*0.76), fx = bx + Math.cos(a0)*br, fy = by + Math.sin(a0)*br, t = TYP.strike;
+    g.strokeStyle = '#d7dae2'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx + (sx - fx)*t, fy + (baseY - fs*0.4 - fy)*t); g.stroke(); }
+  // keyboard: round keys in four rows plus the space bar; the key just typed is pressed down
+  const rows = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'], kr = Math.min(W*0.017, h*0.022), gap = kr*2.45, ky0 = platY + h*0.29;
+  const last = (cur[cur.length - 1] || '').toUpperCase(), press = TYP.strike;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 ' + Math.round(kr*0.9) + 'px ' + FONT_M;
+  rows.forEach((row, r) => {
+    const y0 = ky0 + r*gap*0.92, x0 = cx - (row.length - 1)*gap/2 + r*gap*0.18;
+    for (let i = 0; i < row.length; i++){
+      const x = x0 + i*gap, down = row[i] === last ? press : 0, y = y0 + down*kr*0.35;
+      g.fillStyle = '#0b0a0e'; g.beginPath(); g.arc(x, y0 + kr*0.25, kr*1.05, 0, Math.PI*2); g.fill();   // key stem shadow
+      g.fillStyle = '#c9ccd6'; g.beginPath(); g.arc(x, y, kr*1.05, 0, Math.PI*2); g.fill();   // chrome ring
+      g.fillStyle = down > 0.1 ? col(0.1, 0.9) : '#1c1a21'; g.beginPath(); g.arc(x, y, kr*0.86, 0, Math.PI*2); g.fill();
+      g.fillStyle = '#f1ede4'; g.fillText(row[i], x, y + 1);
+    }
   });
-  if (cur.length && TYP.strike > 0.02){ const ch = cur[cur.length - 1]; g.font = '600 ' + Math.round(fs*(1 + TYP.strike*0.35)) + 'px ' + FONT_M; g.fillStyle = col(0.1, 0.9); g.fillText(ch, px + (cur.length - 1)*cwid - TYP.strike*fs*0.08, baseY); g.font = '600 ' + fs + 'px ' + FONT_M; }
-  if ((T*2 % 1) < 0.5){ g.fillStyle = col(0.1, 0.9); g.fillRect(px + cur.length*cwid + 1, baseY - fs*0.85, 2, fs); }   // caret
-  g.fillStyle = '#22212b'; rr(cx - W*0.4, top + h*0.8, W*0.8, h*0.12, 14); g.fill();   // the machine
-  g.fillStyle = col(0.5, 0.5 + F.kickEnv*0.5); for (let i = 0; i < 12; i++){ g.beginPath(); g.arc(cx - W*0.33 + i*W*0.06, top + h*0.86, Math.min(W, h)*0.016*(1 + (i === (TYP.ci % 12) ? TYP.strike*0.6 : 0)), 0, Math.PI*2); g.fill(); }
+  { const sy = ky0 + 4*gap*0.92 + (last === ' ' ? press*kr*0.35 : 0), sw = gap*6; g.fillStyle = '#c9ccd6'; rr(cx - sw/2, sy - kr*0.45, sw, kr*0.9, kr*0.45); g.fill(); g.fillStyle = '#1c1a21'; rr(cx - sw/2 + 2, sy - kr*0.45 + 2, sw - 4, kr*0.9 - 4, kr*0.4); g.fill(); }
   { const sn = songNow(), msg = !settings.lyrics ? '' : !sn ? 'No song linked: open a file, or use the Afterglow link bookmark on Apple Music'
       : LYR.state === 'loading' ? 'Looking up lyrics for ' + LYR.song + '…' : LYR.state === 'none' ? 'No lyrics found for ' + LYR.song
       : LYR.state === 'error' ? "Couldn't reach the lyrics site (LRCLIB) for " + LYR.song
       : 'Lyrics from LRCLIB · ' + (ly ? 'synced' : LYR.state === 'synced' ? 'synced, waiting for the song position' : 'not synced') + ' · ' + LYR.song;
     if (msg){ g.font = '500 12px ' + FONT_M; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillText(msg, cx, top + h*0.97); g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; } }
   if (false){ g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; }
-  if (TYP.ding > 0.02){ g.font = '800 ' + Math.round(fs*2*(1 + (1 - TYP.ding)*0.4)) + 'px ' + FONT_D; g.textAlign = 'center'; g.fillStyle = col(0.9, TYP.ding); g.fillText('DING!', W*0.82, top + h*0.2); }
+  if (TYP.ding > 0.02){ g.font = '800 ' + Math.round(fs*2.4*(1 + (1 - TYP.ding)*0.4)) + 'px ' + FONT_D; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = col(0.9, TYP.ding); g.fillText('DING!', cx + pw*0.62 + off, platY - h*0.12); }
   TYP.strike *= Math.pow(0.8, k); TYP.ding *= Math.pow(0.96, k);
 }
 
@@ -3382,7 +3419,76 @@ function drawCam(){
   if (!lum){ g.font = '600 13px ' + FONT_M; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillText(CAM.failed ? 'Camera blocked here, showing a stand-in. The standalone file can use it.' : 'Click the screen to use your camera', W/2, area.bottom - 28); }
 }
 
-const DRAW = { orbit:drawOrbit, ridge:drawRidge, spectrum:drawSpectrum, scope:drawScope, warp:drawWarp, galaxy:drawGalaxy, synth:drawSynth, kaleido:drawKaleido, lava:drawLava, hyper:drawHyper, fireworks:drawFireworks, city:drawCity, dna:drawDNA, fire:drawFire, rain:drawRain, sphere:drawSphere , chrome:drawChrome, aurora:drawAurora, ink:drawInk, ripples:drawRipples, classic:drawClassic, mandala:drawMandala, lightning:drawLightning, vinyl:drawVinyl, hifi:drawHifi , cymatics:drawCymatics, blackhole:drawBlackHole, plexus:drawPlexus, spectro:drawSpectro, strings:drawStrings, ecg:drawECG, radar:drawRadar, lasers:drawLasers, trip:drawTrip , tunnel:drawTunnel, ptext:drawPText, topo:drawTopo, pendulum:drawPendulum, tree:drawTree, sunflower:drawSunflower, hex:drawHex, led:drawLED, bubbles:drawBubbles , jelly:drawJelly, blocks:drawBlocks, pads:drawPads, floor:drawFloor, sub:drawSub, step:drawStep, bounce:drawBounce, cube:drawCube, invaders:drawInvaders, snake:drawSnake, domino:drawDomino, glass:drawGlass, slots:drawSlots, neon:drawNeon, pinball:drawPinball, mosh:drawMosh, seismo:drawSeismo, type:drawType, highway:drawHighway, koi:drawKoi, slinky:drawSlinky, origami:drawOrigami, fairy:drawFairy, flag:drawFlag, karaoke:drawKaraoke, march:drawMarch, cam:drawCam };
+// Ninja Slash: one ninja slashes the other on every beat. Keep the beat going and the combo juggles the victim higher
+// and higher; when the beats stop, they float slowly back down and land. The drop is a flurry of slashes
+const NJ = { y: 0, vy: 0, vx: 0, x: 0.5, rot: 0, vr: 0, ax: 0, ay: 0, side: -1, slash: 0, combo: 0, pop: 0, flurry: 0, ft: 0, fx: [], cuts: [], ghosts: [], arm: true, init: false };
+function njFig(x, y, s, rot, pose, scarf, dir, rim, alpha){
+  g.save(); g.translate(x, y); g.rotate(rot); g.scale(dir, 1); g.globalAlpha = alpha == null ? 1 : alpha;
+  const P = {
+    stand: { arms: [[0.32, -0.32], [-0.28, -0.36]], legs: [[0.22, 0.9], [-0.22, 0.9]], sword: [[-0.35, -1.05], [0.45, 0.05]] },
+    slash: { arms: [[0.85, -0.78], [-0.55, -0.55]], legs: [[0.62, 0.82], [-0.58, 0.78]], sword: [[0.85, -0.78], [1.95, -0.35]] },
+    tumble: { arms: [[0.62, -1.05], [-0.62, -0.5]], legs: [[0.55, 0.7], [-0.28, 0.92]], sword: null },
+  }[pose];
+  const seg = (lw, c) => {
+    g.strokeStyle = c; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+    g.moveTo(0, 0); g.lineTo(0, -0.85*s);                                                   // body
+    for (const [ax, ay] of P.arms){ g.moveTo(0, -0.78*s); g.lineTo(ax*s*0.55, (ay*0.5 - 0.5)*s); g.lineTo(ax*s, ay*s); }   // arms, bent at the elbow
+    for (const [lx, ly] of P.legs){ g.moveTo(0, 0); g.lineTo(lx*s*0.6, ly*s*0.5); g.lineTo(lx*s, ly*s); }                   // legs, bent at the knee
+    g.stroke();
+    g.fillStyle = c; g.beginPath(); g.arc(0, -1.12*s, 0.25*s + (lw - s*0.16)/2, 0, Math.PI*2); g.fill();                   // head
+  };
+  seg(s*0.16 + 5, rim); seg(s*0.16, '#0c0b10');   // bright outline first, so the black ninja shows up on the dark background
+  g.fillStyle = '#f2efe8'; g.fillRect(0.02*s, -1.17*s, 0.2*s, 0.06*s);                       // eye slit
+  g.strokeStyle = scarf; g.lineWidth = s*0.09; g.lineCap = 'round'; g.beginPath(); g.moveTo(-0.24*s, -1.2*s);   // headband tails flapping
+  for (let i = 1; i <= 6; i++){ const t = i/6; g.lineTo(-0.24*s - t*0.75*s, -1.2*s + Math.sin(T*14 + t*5)*0.09*s*t + t*0.15*s); }
+  g.stroke(); g.beginPath(); g.moveTo(-0.24*s, -1.24*s); g.lineTo(0.24*s, -1.24*s); g.stroke();
+  if (P.sword){ const [a, b] = P.sword; g.strokeStyle = '#e8ebf2'; g.lineWidth = s*0.055; g.beginPath(); g.moveTo(a[0]*s, a[1]*s); g.lineTo(b[0]*s, b[1]*s); g.stroke(); g.strokeStyle = scarf; g.lineWidth = s*0.09; g.beginPath(); g.moveTo(a[0]*s, a[1]*s); g.lineTo(a[0]*s + (b[0] - a[0])*s*0.12, a[1]*s + (b[1] - a[1])*s*0.12); g.stroke(); }
+  g.restore(); g.globalAlpha = 1;
+}
+function drawNinja(){
+  const k = p3tick(), top = area.top, bot = area.bottom, h = bot - top, ground = bot - h*0.08, s = Math.min(h*0.1, W*0.07), maxY = h*0.62;
+  if (!NJ.init){ NJ.init = true; NJ.ax = W*0.5 - s*1.8; NJ.ay = ground - s*0.9; }
+  const vX = () => NJ.x*W, vY = () => ground - s*0.9 - NJ.y;
+  const hit = (big) => {
+    const ox = NJ.ax, oy = NJ.ay; NJ.ghosts.push({ x: ox, y: oy, l: 0.7, dir: NJ.side > 0 ? -1 : 1 });
+    NJ.side = -NJ.side; NJ.combo++; NJ.pop = 1; NJ.slash = 1;
+    NJ.vy = Math.max(NJ.vy, 0)*0.25 + h*(big ? 0.022 : 0.0125); NJ.vr = rnd(-0.18, 0.18)*(big ? 2 : 1); NJ.vx = -NJ.side*rnd(0.0005, 0.0015);
+    NJ.ax = vX() + NJ.side*s*1.5; NJ.ay = vY() - NJ.vy*6 + rnd(-0.3, 0.3)*s;   // teleports to the other side, a bit ahead of where the victim is going
+    const a = rnd(-0.7, 0.7); NJ.cuts.push({ x: vX(), y: vY() - s*0.5, a, l: 1, len: W*rnd(0.5, 0.9) });
+    if (!reduceMotion) for (let i = 0; i < 16; i++){ const b = a + rnd(-0.5, 0.5) + (Math.random() < 0.5 ? Math.PI : 0), v = rnd(2, 8); NJ.fx.push({ x: vX(), y: vY() - s*0.5, vx: Math.cos(b)*v, vy: Math.sin(b)*v, l: 1 }); }
+  };
+  if (F.beatNow && !reduceMotion) hit(false);
+  if (F.drop > 0.95 && NJ.arm){ NJ.arm = false; NJ.flurry = 9; } else if (F.drop < 0.5) NJ.arm = true;
+  if (NJ.flurry > 0){ NJ.ft += k; if (NJ.ft > 4){ NJ.ft = 0; NJ.flurry--; hit(NJ.flurry === 0); } }
+  // the victim: launched by each slash, floats down slowly when the slashing stops
+  NJ.y += NJ.vy*k; NJ.vy -= h*0.00045*k; if (NJ.vy < -h*0.0045) NJ.vy = -h*0.0045;
+  if (NJ.y > maxY){ NJ.y = maxY; NJ.vy = Math.min(NJ.vy, 0); }
+  NJ.x = clamp(NJ.x + NJ.vx*k, 0.25, 0.75); NJ.vx *= Math.pow(0.97, k); NJ.x += (0.5 - NJ.x)*0.004*k;
+  const air = NJ.y > s*0.2;
+  if (NJ.y <= 0){ NJ.y = 0; NJ.vy = 0; NJ.combo = 0; }
+  if (air){ NJ.rot += NJ.vr*k; NJ.vr *= Math.pow(0.985, k); } else { NJ.rot += (Math.round(NJ.rot/(Math.PI*2))*Math.PI*2 - NJ.rot)*0.15*k; }
+  // the attacker hangs in the air beside the victim during a combo, and drops back to the ground after
+  const tax = air ? NJ.ax : vX() - NJ.side*s*1.8, tay = air ? Math.min(ground - s*0.9, NJ.ay + (vY() - NJ.ay)*0.02) : ground - s*0.9;
+  NJ.ax += (tax - NJ.ax)*(air ? 0.5 : 0.06)*k; NJ.ay += (tay - NJ.ay)*(air ? 0.08 : 0.08)*k;
+  fade(0.55);
+  const moon = g.createRadialGradient(W*0.78, top + h*0.22, 0, W*0.78, top + h*0.22, h*0.16); moon.addColorStop(0, col(0.85, 0.5)); moon.addColorStop(0.7, col(0.85, 0.25)); moon.addColorStop(1, col(0.85, 0));
+  g.fillStyle = moon; g.fillRect(W*0.78 - h*0.16, top + h*0.06, h*0.32, h*0.32);
+  g.fillStyle = 'rgba(255,255,255,0.07)'; g.fillRect(0, ground, W, 2);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = NJ.cuts.length - 1; i >= 0; i--){ const c = NJ.cuts[i]; c.l -= 0.05*k; if (c.l <= 0){ NJ.cuts.splice(i, 1); continue; } const dx = Math.cos(c.a)*c.len/2, dy = Math.sin(c.a)*c.len/2; g.strokeStyle = col(0.95, c.l); g.lineWidth = 1 + c.l*5; g.beginPath(); g.moveTo(c.x - dx, c.y - dy); g.lineTo(c.x + dx, c.y + dy); g.stroke(); g.strokeStyle = 'rgba(255,255,255,' + (c.l*0.9).toFixed(3) + ')'; g.lineWidth = 1 + c.l*1.5; g.stroke(); }
+  if (NJ.slash > 0.05){ const x = vX(), y = vY() - s*0.5, a0 = NJ.side > 0 ? Math.PI*0.65 : -Math.PI*0.35; g.strokeStyle = col(0.9, NJ.slash*0.9); g.lineWidth = s*0.22*NJ.slash; g.beginPath(); g.arc(x, y, s*1.5, a0, a0 + Math.PI*0.9); g.stroke(); }
+  for (let i = NJ.fx.length - 1; i >= 0; i--){ const e = NJ.fx[i]; e.x += e.vx*k; e.y += e.vy*k; e.vy += 0.2*k; e.l -= 0.035*k; if (e.l <= 0){ NJ.fx.splice(i, 1); continue; } g.fillStyle = col(0.9, e.l); g.fillRect(e.x - 1.5, e.y - 1.5, 3, 3); }
+  for (let i = NJ.ghosts.length - 1; i >= 0; i--){ const q = NJ.ghosts[i]; q.l -= 0.05*k; if (q.l <= 0){ NJ.ghosts.splice(i, 1); continue; } njFig(q.x, q.y, s, 0, 'slash', col(0.2, q.l), q.dir, col(0.2, q.l*0.6), q.l*0.5); }   // afterimage where the attacker teleported from
+  g.globalCompositeOperation = 'source-over';
+  // shadows under both, smaller the higher they are
+  for (const [x, y] of [[vX(), vY()], [NJ.ax, NJ.ay]]){ const hgt = ground - s*0.9 - y, sh = clamp(1 - hgt/(h*0.6), 0.2, 1); g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.ellipse(x, ground, s*0.6*sh, s*0.12*sh, 0, 0, Math.PI*2); g.fill(); }
+  njFig(vX(), vY(), s, NJ.rot, air ? 'tumble' : 'stand', col(0.05), NJ.side > 0 ? 1 : -1, col(0.05, 0.85));   // the victim
+  njFig(NJ.ax, NJ.ay, s, 0, NJ.slash > 0.15 || air ? 'slash' : 'stand', col(0.6), NJ.ax < vX() ? 1 : -1, col(0.6, 0.85));   // the slasher
+  if (NJ.combo >= 2){ const z = 1 + NJ.pop*0.5; g.font = '900 ' + Math.round(h*0.08*z) + 'px ' + FONT_D; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = col(0.9, 0.95); g.fillText(NJ.combo + ' HITS', W*0.05, top + h*0.1); g.font = '700 ' + Math.round(h*0.03) + 'px ' + FONT_M; g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillText('COMBO', W*0.05, top + h*0.17); }
+  NJ.slash *= Math.pow(0.82, k); NJ.pop *= Math.pow(0.85, k);
+}
+
+const DRAW = { orbit:drawOrbit, ridge:drawRidge, spectrum:drawSpectrum, scope:drawScope, warp:drawWarp, galaxy:drawGalaxy, synth:drawSynth, kaleido:drawKaleido, lava:drawLava, hyper:drawHyper, fireworks:drawFireworks, city:drawCity, dna:drawDNA, fire:drawFire, rain:drawRain, sphere:drawSphere , chrome:drawChrome, aurora:drawAurora, ink:drawInk, ripples:drawRipples, classic:drawClassic, mandala:drawMandala, lightning:drawLightning, vinyl:drawVinyl, hifi:drawHifi , cymatics:drawCymatics, blackhole:drawBlackHole, plexus:drawPlexus, spectro:drawSpectro, strings:drawStrings, ecg:drawECG, radar:drawRadar, lasers:drawLasers, trip:drawTrip , tunnel:drawTunnel, ptext:drawPText, topo:drawTopo, pendulum:drawPendulum, tree:drawTree, sunflower:drawSunflower, hex:drawHex, led:drawLED, bubbles:drawBubbles , jelly:drawJelly, blocks:drawBlocks, pads:drawPads, floor:drawFloor, sub:drawSub, step:drawStep, bounce:drawBounce, cube:drawCube, invaders:drawInvaders, snake:drawSnake, domino:drawDomino, glass:drawGlass, slots:drawSlots, neon:drawNeon, pinball:drawPinball, mosh:drawMosh, seismo:drawSeismo, type:drawType, highway:drawHighway, koi:drawKoi, slinky:drawSlinky, origami:drawOrigami, fairy:drawFairy, flag:drawFlag, karaoke:drawKaraoke, march:drawMarch, cam:drawCam, ninja:drawNinja };
 
 /* ---------- drop detection ---------- */
 /* drops: "the low end went away (or wasn't there yet), then slammed in". Measured on the raw kick-band power
