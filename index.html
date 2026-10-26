@@ -1589,7 +1589,7 @@ window.addEventListener('message', e => {   // only Apple Music pages are listen
   const t = d.title.replace(/\s+/g, ' ').trim().slice(0, 40); if (!t) return;
   if (t !== linkedSong && settings.songText) toast('Now playing: ' + t, 2200);
   linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
-  APL.dbg = typeof d.dbg === 'string' ? d.dbg.slice(0, 160) : '';
+  APL.dbg = typeof d.dbg === 'string' ? d.dbg.slice(0, 200) : ''; APL.how = APL.dbg.startsWith('how:') ? APL.dbg.slice(4) : ''; if (APL.how) APL.dbg = '';
   if (d.lyr && typeof d.lyr === 'object'){
     if (Array.isArray(d.lyr.lines)) APL.lines = d.lyr.lines.filter(x => typeof x === 'string').slice(0, 400).map(x => x.slice(0, 200));
     const ni = Number.isInteger(d.lyr.i) ? d.lyr.i : -1, now = performance.now();
@@ -1602,13 +1602,20 @@ function bookmarkletFor(url){   // runs on the Apple Music tab: opens Afterglow,
   const code = `(()=>{const U=${JSON.stringify(url)},O=new URL(U).origin;let w=window.__agW;if(!w||w.closed)w=window.__agW=window.open(U,'afterglow');clearInterval(window.__agT);let box=null,sig='',n=0;
 const cls=e=>(typeof e.className==='string'?e.className:(e.getAttribute&&e.getAttribute('class'))||'');
 const deep=r=>{const out=[];const go=x=>{for(const el of x.querySelectorAll('*')){out.push(el);if(el.shadowRoot)go(el.shadowRoot);}};go(r);return out;};
-const findLines=()=>{const all=deep(document);let L=all.filter(e=>/lyric[^ ]*line|line[^ ]*lyric/i.test(cls(e)));if(L.length<3)L=all.filter(e=>/lyric/i.test(cls(e))&&!e.querySelector('[class*=yric]')&&(e.textContent||'').trim().length>0&&(e.textContent||'').trim().length<200);if(L.length<3){const seen=[...new Set(all.map(cls).filter(c=>/yric/i.test(c)))].slice(0,6).join(' | ');return{L:[],dbg:'no lyric lines found'+(seen?' (saw: '+seen+')':'')+', shadow roots: '+all.filter(e=>e.shadowRoot).length};}return{L,dbg:''};};
+const txt=e=>(e.innerText||e.textContent||'').replace(/\\s+/g,' ').trim();
+const findLines=()=>{const all=deep(document);const boxes=all.filter(e=>/lyrics__container|lyrics__platter|lyrics-container|dt-lyrics/i.test(cls(e)));
+let best=null,bn=0;for(const b of boxes){for(const el of [b,...b.querySelectorAll('*')]){const kids=[...el.children].filter(c=>{const t=txt(c);return t.length>0&&t.length<200&&!/button|control|header|footer|attribution|credit/i.test(cls(c))&&c.tagName!=='BUTTON'&&!c.querySelector('button');});if(kids.length>bn){bn=kids.length;best=kids;}}}
+if(!best||bn<3){let L=all.filter(e=>/lyric[^ ]*line|line[^ ]*lyric/i.test(cls(e)));if(L.length>=3)return{L,dbg:''};const seen=[...new Set(all.map(cls).filter(c=>/yric/i.test(c)))].slice(0,8).join(' | ');return{L:[],dbg:'no lyric lines found'+(seen?' (saw: '+seen+')':'')};}
+return{L:best,dbg:''};};
+const activeOf=L=>{let i=L.findIndex(e=>{const c=cls(e)+' '+[...e.querySelectorAll('*')].slice(0,3).map(cls).join(' ');return /(active|current|highlight|playing|selected|focused)/i.test(c.replace(/(not|in)-?(active|current|focused|playing)/gi,''))||e.getAttribute('aria-current')==='true';});if(i>=0)return[i,'class'];
+const op=L.map(e=>{try{const st=getComputedStyle(e);return parseFloat(st.opacity)*(st.color.includes('255, 255, 255')?1.01:1);}catch(x){return 1;}});const mx=Math.max(...op),cnt=op.filter(v=>v===mx).length;if(cnt===1&&mx>Math.min(...op))return[op.indexOf(mx),'brightest'];
+const pr=L[0].parentElement,r=pr&&pr.getBoundingClientRect();if(r&&r.height>0){let bi=-1,bd=1e9;L.forEach((e,j)=>{const q=e.getBoundingClientRect();if(q.height<=0)return;const d=Math.abs(q.top+q.height/2-(Math.max(0,r.top)+innerHeight*0.33));if(d<bd){bd=d;bi=j;}});if(bi>=0)return[bi,'position'];}return[-1,'none'];};
 const send=()=>{const w=window.__agW;if(!w||w.closed){clearInterval(window.__agT);return;}n++;
 const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'',a=(m&&m.artist)||'',p=null,pl=true,du=0;
 try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk){if(typeof mk.currentPlaybackTime==='number')p=mk.currentPlaybackTime;if(typeof mk.isPlaying==='boolean')pl=mk.isPlaying;const it=mk.nowPlayingItem;if(it){if(!t)t=it.title||'';if(!a)a=it.artistName||'';du=it.playbackDuration||0;if(du>10000)du/=1000;}}}catch(e){}
 if(p===null){const el=[...document.querySelectorAll('audio,video')].find(x=>x.currentTime>0);if(el){p=el.currentTime;pl=!el.paused;du=du||el.duration||0;}}
 if(!t){t=document.title.replace(/\\s*[-–—|]\\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}
-let lyr=null,dbg='';try{if(!box||!box.L.length||!box.L[0].isConnected||n%6===0)box=findLines();dbg=box.dbg;if(box.L.length){const lines=box.L.map(e=>(e.innerText||e.textContent||'').replace(/\\s+/g,' ').trim());let ai=box.L.findIndex(e=>/(^|[^a-z])(active|current|highlight|playing|selected)/i.test(cls(e))||e.getAttribute('aria-current')==='true');const s2=lines.join('\\n');lyr={i:ai,lines:(s2!==sig||n%10===0)?lines:null};sig=s2;}}catch(e){dbg='lyrics error: '+e.message;}
+let lyr=null,dbg='';try{if(!box||!box.L.length||!box.L[0].isConnected||n%6===0)box=findLines();dbg=box.dbg;if(box.L.length){const lines=box.L.map(txt);const [ai,how]=activeOf(box.L);if(ai<0)dbg='found '+box.L.length+' lines but no highlight (line classes: '+[...new Set(box.L.slice(0,4).map(cls))].join(' | ')+')';else dbg='how:'+how;const s2=lines.join('\\n');lyr={i:ai,lines:(s2!==sig||n%10===0)?lines:null};sig=s2;}}catch(e){dbg='lyrics error: '+e.message;}
 if(t)w.postMessage({afterglow:'song',title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,lyr,dbg},O);};send();window.__agT=setInterval(send,500);})()`;
   return 'javascript:' + encodeURIComponent(code);
 }
@@ -3054,7 +3061,9 @@ function lyricsNow(){
   const key = (s.title + '|' + s.artist).toLowerCase();
   if (LYR.key !== key){
     LYR.key = key; LYR.text = ''; LYR.sync = null; LYR.state = 'loading'; LYR.song = s.title + (s.artist ? ' by ' + s.artist : '');
-    fetch('https://lrclib.net/api/search?q=' + encodeURIComponent((s.title + ' ' + s.artist).trim()))
+    const clean = t => t.replace(/\s*[\(\[](feat|ft|with|prod)\.?[^\)\]]*[\)\]]/gi, '').replace(/\s*-\s*(single|ep|remaster(ed)?( \d{4})?)$/i, '').trim();
+    const q = (clean(s.title) + ' ' + s.artist.split(/,|&| x | feat/i)[0]).trim();
+    const go = (tries) => fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(q))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(list => {
         if (LYR.key !== key || !Array.isArray(list)) return;
         const dur = songDur(), ok = list.filter(x => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics));
@@ -3063,7 +3072,8 @@ function lyricsNow(){
         LYR.sync = hit && hit.syncedLyrics ? parseLRC(hit.syncedLyrics) : null;
         LYR.state = hit ? (LYR.sync ? 'synced' : 'plain') : 'none';
         if (hit) LYR.text = (hit.plainLyrics || hit.syncedLyrics.replace(/\[[^\]]*\]\s?/g, '')).replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim();
-      }).catch(() => { if (LYR.key === key) LYR.state = 'error'; });
+      }).catch(() => { if (LYR.key !== key) return; if (tries > 0) setTimeout(() => { if (LYR.key === key) go(tries - 1); }, 4000); else LYR.state = 'error'; });
+    go(3);
   }
   return LYR.text;
 }
@@ -3142,7 +3152,7 @@ function drawType(){
   { const sy = ky0 + 4*gap*0.92 + (last === ' ' ? press*kr*0.35 : 0), sw = gap*6; g.fillStyle = '#c9ccd6'; rr(cx - sw/2, sy - kr*0.45, sw, kr*0.9, kr*0.45); g.fill(); g.fillStyle = '#1c1a21'; rr(cx - sw/2 + 2, sy - kr*0.45 + 2, sw - 4, kr*0.9 - 4, kr*0.4); g.fill(); }
   { const sn = songNow(), apl = aplOn(), seen = !apl && APL.dbg && linkedSong ? 'Apple lyrics view: ' + APL.dbg + ' · ' : '';
     const msg = !settings.lyrics ? '' : !sn ? 'No song linked: open a file, or use the Afterglow link bookmark on Apple Music'
-      : apl ? 'Lyrics from Apple Music · synced to the highlighted line'
+      : apl ? 'Lyrics from Apple Music · synced to the highlighted line (' + (APL.how || 'found') + ')'
       : seen + (LYR.state === 'loading' ? 'Looking up lyrics for ' + LYR.song + '…' : LYR.state === 'none' ? 'No lyrics found for ' + LYR.song
       : LYR.state === 'error' ? "Couldn't reach the lyrics site (LRCLIB) for " + LYR.song
       : 'Lyrics from LRCLIB · ' + (ly ? 'synced' : LYR.state === 'synced' ? 'synced, waiting for the song position' : 'not synced') + ' · ' + LYR.song);
