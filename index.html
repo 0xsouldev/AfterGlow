@@ -1581,6 +1581,7 @@ const FONT_D = '"Bricolage Grotesque", system-ui, sans-serif', FONT_M = '"JetBra
 // The name comes from the file you opened, or from the Apple Music tab through the "Afterglow link" bookmark
 let songName = '', linkedSong = '', linkedArtist = '', linkedAt = 0;
 const LINK = { pos: null, playing: false, dur: 0, at: 0 };
+const APL = { lines: [], i: -1, at: 0, seen: 0, avg: 3.5, dbg: '' };   // lyrics read off Apple Music's own lyrics view
 function textSource(){ const live = linkedSong && performance.now() - linkedAt < 10000 ? linkedSong : ''; return (settings.songText && (songName || live)) ? (songName || live) : (settings.text || '').trim(); }
 window.addEventListener('message', e => {   // only Apple Music pages are listened to, and only a song title is taken
   const d = e.data;
@@ -1588,10 +1589,27 @@ window.addEventListener('message', e => {   // only Apple Music pages are listen
   const t = d.title.replace(/\s+/g, ' ').trim().slice(0, 40); if (!t) return;
   if (t !== linkedSong && settings.songText) toast('Now playing: ' + t, 2200);
   linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
+  APL.dbg = typeof d.dbg === 'string' ? d.dbg.slice(0, 160) : '';
+  if (d.lyr && typeof d.lyr === 'object'){
+    if (Array.isArray(d.lyr.lines)) APL.lines = d.lyr.lines.filter(x => typeof x === 'string').slice(0, 400).map(x => x.slice(0, 200));
+    const ni = Number.isInteger(d.lyr.i) ? d.lyr.i : -1, now = performance.now();
+    if (ni !== APL.i){ if (APL.i >= 0 && ni === APL.i + 1){ const dt = (now - APL.at)/1000; if (dt > 0.5 && dt < 15) APL.avg = APL.avg*0.7 + dt*0.3; } APL.i = ni; APL.at = now; }
+    APL.seen = now;
+  } else APL.lines = [];
   LINK.pos = typeof d.pos === 'number' && isFinite(d.pos) && d.pos >= 0 ? d.pos : null; LINK.playing = d.playing === true; LINK.dur = typeof d.dur === 'number' && isFinite(d.dur) ? d.dur : 0; LINK.at = linkedAt;
 });
-function bookmarkletFor(url){   // runs on the Apple Music tab: opens Afterglow, then every second sends it the song name and where the song is up to
-  const code = `(()=>{const U=${JSON.stringify(url)},O=new URL(U).origin;let w=window.__agW;if(!w||w.closed)w=window.__agW=window.open(U,'afterglow');clearInterval(window.__agT);const send=()=>{const w=window.__agW;if(!w||w.closed){clearInterval(window.__agT);return;}const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'',a=(m&&m.artist)||'',p=null,pl=true,du=0;try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk){if(typeof mk.currentPlaybackTime==='number')p=mk.currentPlaybackTime;if(typeof mk.isPlaying==='boolean')pl=mk.isPlaying;const it=mk.nowPlayingItem;if(it){if(!t)t=it.title||'';if(!a)a=it.artistName||'';du=it.playbackDuration||0;if(du>10000)du/=1000;}}}catch(e){}if(p===null){const el=[...document.querySelectorAll('audio,video')].find(x=>x.currentTime>0);if(el){p=el.currentTime;pl=!el.paused;du=du||el.duration||0;}}if(!t){t=document.title.replace(/\\s*[-–—|]\\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}if(t)w.postMessage({afterglow:'song',title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0},O);};send();window.__agT=setInterval(send,1000);})()`;
+function bookmarkletFor(url){   // runs on the Apple Music tab: opens Afterglow, then twice a second sends the song name, where the song is up to and, if the lyrics view is open, its lines and which one is highlighted
+  const code = `(()=>{const U=${JSON.stringify(url)},O=new URL(U).origin;let w=window.__agW;if(!w||w.closed)w=window.__agW=window.open(U,'afterglow');clearInterval(window.__agT);let box=null,sig='',n=0;
+const cls=e=>(typeof e.className==='string'?e.className:(e.getAttribute&&e.getAttribute('class'))||'');
+const deep=r=>{const out=[];const go=x=>{for(const el of x.querySelectorAll('*')){out.push(el);if(el.shadowRoot)go(el.shadowRoot);}};go(r);return out;};
+const findLines=()=>{const all=deep(document);let L=all.filter(e=>/lyric[^ ]*line|line[^ ]*lyric/i.test(cls(e)));if(L.length<3)L=all.filter(e=>/lyric/i.test(cls(e))&&!e.querySelector('[class*=yric]')&&(e.textContent||'').trim().length>0&&(e.textContent||'').trim().length<200);if(L.length<3){const seen=[...new Set(all.map(cls).filter(c=>/yric/i.test(c)))].slice(0,6).join(' | ');return{L:[],dbg:'no lyric lines found'+(seen?' (saw: '+seen+')':'')+', shadow roots: '+all.filter(e=>e.shadowRoot).length};}return{L,dbg:''};};
+const send=()=>{const w=window.__agW;if(!w||w.closed){clearInterval(window.__agT);return;}n++;
+const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'',a=(m&&m.artist)||'',p=null,pl=true,du=0;
+try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk){if(typeof mk.currentPlaybackTime==='number')p=mk.currentPlaybackTime;if(typeof mk.isPlaying==='boolean')pl=mk.isPlaying;const it=mk.nowPlayingItem;if(it){if(!t)t=it.title||'';if(!a)a=it.artistName||'';du=it.playbackDuration||0;if(du>10000)du/=1000;}}}catch(e){}
+if(p===null){const el=[...document.querySelectorAll('audio,video')].find(x=>x.currentTime>0);if(el){p=el.currentTime;pl=!el.paused;du=du||el.duration||0;}}
+if(!t){t=document.title.replace(/\\s*[-–—|]\\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}
+let lyr=null,dbg='';try{if(!box||!box.L.length||!box.L[0].isConnected||n%6===0)box=findLines();dbg=box.dbg;if(box.L.length){const lines=box.L.map(e=>(e.innerText||e.textContent||'').replace(/\\s+/g,' ').trim());let ai=box.L.findIndex(e=>/(^|[^a-z])(active|current|highlight|playing|selected)/i.test(cls(e))||e.getAttribute('aria-current')==='true');const s2=lines.join('\\n');lyr={i:ai,lines:(s2!==sig||n%10===0)?lines:null};sig=s2;}}catch(e){dbg='lyrics error: '+e.message;}
+if(t)w.postMessage({afterglow:'song',title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,lyr,dbg},O);};send();window.__agT=setInterval(send,500);})()`;
   return 'javascript:' + encodeURIComponent(code);
 }
 function brandText(){ return textSource() || 'Afterglow'; }
@@ -3013,7 +3031,12 @@ function parseLRC(txt){   // "[01:23.45] words" -> [{ t: 83.45, s: 'words' }]
   for (const line of txt.split(/\n/)){ const m = line.match(/^\s*\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/); if (m) out.push({ t: +m[1]*60 + +m[2], s: m[3].trim() }); }
   return out.sort((a, b) => a.t - b.t);
 }
+function aplOn(){ return settings.lyrics && APL.lines.length > 2 && APL.i >= 0 && performance.now() - APL.seen < 3000; }
 function lyricLine(){   // the synced line being sung now: { i, cur, next, start, end }
+  if (aplOn()){   // from Apple Music's highlighted line: it started when the highlight moved; length guessed from the song's pace so far
+    const L = APL.lines.map(x => ({ t: 0, s: x })), pos = performance.now()/1000, start = APL.at/1000, i = Math.min(APL.i, L.length - 1);
+    return { i, pos, L, cur: L[i], next: L.slice(i + 1).find(x => x.s) || null, start, end: start + APL.avg };
+  }
   lyricsNow(); const L = LYR.sync, pos = songPos();
   if (!L || !L.length || pos === null) return null;
   let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos + 0.15) i = q; else break; }
@@ -3026,6 +3049,7 @@ function songNow(){
   return null;
 }
 function lyricsNow(){
+  if (aplOn()) return APL.lines.join('\n');
   const s = settings.lyrics && songNow(); if (!s) return '';
   const key = (s.title + '|' + s.artist).toLowerCase();
   if (LYR.key !== key){
@@ -3116,10 +3140,12 @@ function drawType(){
     }
   });
   { const sy = ky0 + 4*gap*0.92 + (last === ' ' ? press*kr*0.35 : 0), sw = gap*6; g.fillStyle = '#c9ccd6'; rr(cx - sw/2, sy - kr*0.45, sw, kr*0.9, kr*0.45); g.fill(); g.fillStyle = '#1c1a21'; rr(cx - sw/2 + 2, sy - kr*0.45 + 2, sw - 4, kr*0.9 - 4, kr*0.4); g.fill(); }
-  { const sn = songNow(), msg = !settings.lyrics ? '' : !sn ? 'No song linked: open a file, or use the Afterglow link bookmark on Apple Music'
-      : LYR.state === 'loading' ? 'Looking up lyrics for ' + LYR.song + '…' : LYR.state === 'none' ? 'No lyrics found for ' + LYR.song
+  { const sn = songNow(), apl = aplOn(), seen = !apl && APL.dbg && linkedSong ? 'Apple lyrics view: ' + APL.dbg + ' · ' : '';
+    const msg = !settings.lyrics ? '' : !sn ? 'No song linked: open a file, or use the Afterglow link bookmark on Apple Music'
+      : apl ? 'Lyrics from Apple Music · synced to the highlighted line'
+      : seen + (LYR.state === 'loading' ? 'Looking up lyrics for ' + LYR.song + '…' : LYR.state === 'none' ? 'No lyrics found for ' + LYR.song
       : LYR.state === 'error' ? "Couldn't reach the lyrics site (LRCLIB) for " + LYR.song
-      : 'Lyrics from LRCLIB · ' + (ly ? 'synced' : LYR.state === 'synced' ? 'synced, waiting for the song position' : 'not synced') + ' · ' + LYR.song;
+      : 'Lyrics from LRCLIB · ' + (ly ? 'synced' : LYR.state === 'synced' ? 'synced, waiting for the song position' : 'not synced') + ' · ' + LYR.song);
     if (msg){ g.font = '500 12px ' + FONT_M; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillText(msg, cx, top + h*0.97); g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; } }
   if (false){ g.font = '600 ' + fs + 'px ' + FONT_M; g.textAlign = 'left'; }
   if (TYP.ding > 0.02){ g.font = '800 ' + Math.round(fs*2.4*(1 + (1 - TYP.ding)*0.4)) + 'px ' + FONT_D; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = col(0.9, TYP.ding); g.fillText('DING!', cx + pw*0.62 + off, platY - h*0.12); }
