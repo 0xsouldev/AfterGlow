@@ -400,6 +400,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
     <p class="shint">Shows on Classic Bars, the Vinyl label, Particle Text, the LED Board, Neon Sign, Laptop, Karaoke Ball, the lyric modes and Marching Band. Leave it empty for Afterglow.</p>
     <div class="tog"><span><b>Use the song name</b><em>Swap your text for the name of the song playing, when it's a file you opened. Apple Music in another tab can't share its song name with this page, so your text is used then.</em></span><button class="btn togb" data-tog="songText" aria-pressed="false">Off</button></div>
     <div class="tog"><span><b>Laptop types the lyrics</b><em>Looks up the playing song's lyrics on LRCLIB, a free lyrics database, and types them out. Needs the song name (a file, or the Apple Music link) and an internet connection; falls back to your text.</em></span><button class="btn togb" data-tog="lyrics" aria-pressed="true">On</button></div>
+    <div class="tog"><span><b>Lyrics timing</b><em id="lyrOffTxt"></em></span><input type="range" id="lyrOff" min="-1" max="2" step="0.05" aria-label="Lyrics timing"></div>
     <label class="shead" style="margin-top:14px;display:block">Apple Music link</label>
     <a class="btn" id="bmLink" href="#" draggable="true" style="display:inline-flex;margin-top:6px">♪ Afterglow link</a>
     <a class="btn" id="bmInspect" href="#" draggable="true" style="display:inline-flex;margin-top:6px;margin-left:6px">🔍 Lyrics inspector</a>
@@ -436,7 +437,7 @@ const PAL_KEYS = Object.keys(PALETTES);
 const MODES = ['orbit','ridge','spectrum','scope','warp','galaxy','synth','kaleido','lava','hyper','fireworks','city','dna','fire','rain','sphere','chrome','aurora','ink','ripples','classic','mandala','lightning','vinyl','hifi','cymatics','blackhole','plexus','spectro','strings','ecg','radar','lasers','trip','tunnel','ptext','topo','pendulum','tree','sunflower','hex','led','bubbles','jelly','blocks','pads','floor','sub','step','bounce','cube','invaders','snake','domino','glass','slots','neon','pinball','mosh','seismo','type','highway','koi','slinky','origami','fairy','flag','karaoke','march','cam','ninja','kinetic','texts','flap','crawl'];
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 
-const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
+const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
 try {
   const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -449,6 +450,7 @@ try {
     if ([8, 16, 32].includes(s.autoEvery)) settings.autoEvery = s.autoEvery;
     if (Array.isArray(s.autoSkip)) settings.autoSkip = MODES.filter(m => s.autoSkip.includes(m));
     if (typeof s.text === 'string') settings.text = s.text.slice(0, 24);
+    if (typeof s.lyrOff === 'number' && isFinite(s.lyrOff)) settings.lyrOff = clamp(s.lyrOff, -1, 2);
     if ([2, 4, 8].includes(s.cymEvery)) settings.cymEvery = s.cymEvery;
     for (const k of ['agc', 'xfade', 'autoDrop', 'songText', 'lyrics']) if (typeof s[k] === 'boolean') settings[k] = s[k];
     if (['auto', 'kick', 'snare', 'all'].includes(s.beatSrc)) settings.beatSrc = s.beatSrc;
@@ -1594,7 +1596,7 @@ window.addEventListener('message', e => {   // only Apple Music pages are listen
   const t = d.title.replace(/\s+/g, ' ').trim().slice(0, 40); if (!t) return;
   if (t !== linkedSong && settings.songText) toast('Now playing: ' + t, 2200);
   linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
-  LINK.v = Number(d.v) || 1; if (LINK.v < 4 && !LINK.warned){ LINK.warned = true; toast('Your Afterglow link bookmark is out of date. Hard refresh this page and drag a fresh one from Settings.', 6000); }
+  LINK.v = Number(d.v) || 1; if (LINK.v < 5 && !LINK.warned){ LINK.warned = true; toast('Your Afterglow link bookmark is out of date. Hard refresh this page and drag a fresh one from Settings.', 6000); }
   APL.dbg = typeof d.dbg === 'string' ? d.dbg.slice(0, 200) : ''; APL.how = APL.dbg.startsWith('how:') ? APL.dbg.slice(4) : ''; if (APL.how) APL.dbg = '';
   if (d.lyr && typeof d.lyr === 'object'){
     if (Array.isArray(d.lyr.lines)) APL.lines = d.lyr.lines.filter(x => typeof x === 'string').slice(0, 400).map(x => x.slice(0, 200));
@@ -1644,7 +1646,7 @@ try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk
 if(p===null){const el=[...document.querySelectorAll('audio,video')].find(x=>x.currentTime>0);if(el){p=el.currentTime;pl=!el.paused;du=du||el.duration||0;}}
 if(!t){t=document.title.replace(/\\s*[-–—|]\\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}
 let lyr=null,dbg='';try{if(!box||!box.L.length||!box.L[0].isConnected||n%6===0)box=findLines();dbg=box.dbg;if(box.L.length){if(!lineCache||lineCacheN!==box.L.length||n%10===0){lineCache=box.L.map(e=>e.tagName==='AMP-LYRICS-DISPLAY-INSTRUMENTAL-LINE'?'':lineTxt(e));lineCacheN=box.L.length;}const lines=lineCache;const [ai,how]=activeOf(box.L);if(ai<0)dbg='found '+box.L.length+' lines but no highlight (attributes on a line: '+box.L[0].getAttributeNames().join(',')+')';else dbg='how:'+how;const s2=lines.join('\\n');lyr={i:ai,lines:(s2!==sig||n%10===0)?lines:null};sig=s2;}}catch(e){dbg='lyrics error: '+e.message;}
-if(t)w.postMessage({afterglow:'song',v:4,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,lyr,dbg},O);};send();window.__agT=setInterval(send,250);})()`;
+if(t)w.postMessage({afterglow:'song',v:5,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,lyr,dbg},O);};send();window.__agT=setInterval(send,100);})()`;
   return 'javascript:' + encodeURIComponent(code);
 }
 function brandText(){ return textSource() || 'Afterglow'; }
@@ -3071,10 +3073,11 @@ function lyricLine(){   // the synced line being sung now: { i, cur, next, start
   if (aplOn()){   // from Apple Music's highlighted line: it started when the highlight moved; length guessed from the song's pace so far
     const L = APL.lines.map(x => ({ t: 0, s: x })), pos = performance.now()/1000, start = APL.at/1000, i = Math.min(APL.i, L.length - 1);
     // the highlight is seen up to a poll late, so start the line a little early
-    return { i, pos: pos + 0.2, L, cur: L[i], next: L.slice(i + 1).find(x => x.s) || null, start, end: start + APL.avg };
+    return { i, pos: pos + settings.lyrOff, L, cur: L[i], next: L.slice(i + 1).find(x => x.s) || null, start, end: start + APL.avg };
   }
-  lyricsNow(); const L = LYR.sync, pos = songPos();
-  if (!L || !L.length || pos === null) return null;
+  lyricsNow(); const L = LYR.sync, p0 = songPos();
+  if (!L || !L.length || p0 === null) return null;
+  const pos = p0 + settings.lyrOff - 0.15;   // your timing nudge (the default leans a little early)
   let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos + 0.15) i = q; else break; }
   const nxt = L.slice(i + 1).find(x => x.s), end = i + 1 < L.length ? L[i + 1].t : (i >= 0 ? L[i].t + 5 : 0);
   return { i, pos, L, cur: i >= 0 ? L[i] : null, next: nxt || null, start: i >= 0 ? L[i].t : 0, end };
@@ -3179,7 +3182,7 @@ function drawType(){
   });
   { const tpW = sw*0.3, tpH = bh2*0.13, tpY = bTop + bh2*0.82; g.fillStyle = 'rgba(255,255,255,0.05)'; rr(cx - tpW/2, tpY, tpW, tpH, 6); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.08)'; g.stroke(); }   // trackpad
   { const sn = songNow(), apl = aplOn(), seen = !apl && APL.dbg && linkedSong ? 'Apple lyrics view: ' + APL.dbg + ' · ' : '';
-    const old = linkedSong && LINK.v < 4 && performance.now() - linkedAt < 10000;
+    const old = linkedSong && LINK.v < 5 && performance.now() - linkedAt < 10000;
     const msg = old ? 'Your Afterglow link bookmark is out of date: drag a fresh one from Settings (hard refresh this page first)' : !settings.lyrics ? '' : !sn ? 'No song linked: open a file, or use the Afterglow link bookmark on Apple Music'
       : apl ? 'Lyrics from Apple Music · synced to the highlighted line (' + (APL.how || 'found') + ')'
       : seen + (LYR.state === 'loading' ? 'Looking up lyrics for ' + LYR.song + '…' : LYR.state === 'none' ? 'No lyrics found for ' + LYR.song
@@ -4261,6 +4264,8 @@ $('#poolLyrics').addEventListener('click', () => {
 });
 $('#poolNone').addEventListener('click', () => { settings.autoSkip = MODES.slice(); autoBag = []; syncSettingsPanel(); save(); });
 ctext.addEventListener('input', () => { settings.text = ctext.value.slice(0, 24); save(); });
+{ const lo = $('#lyrOff'), lt = $('#lyrOffTxt'), say = () => { const v = settings.lyrOff; lt.textContent = (Math.abs(v) < 0.025 ? 'Right on the music' : 'Lyrics ' + Math.abs(v).toFixed(2) + ' s ' + (v > 0 ? 'early' : 'late')) + '. Slide right if they lag, left if they rush.'; };
+  lo.value = settings.lyrOff; say(); lo.addEventListener('input', () => { settings.lyrOff = +lo.value; say(); save(); }); }
 { const bm = $('#bmLink'), url = location.href.split('#')[0], ok = location.protocol === 'https:' && window.top === window;
   bm.href = bookmarkletFor(url); const bi = $('#bmInspect'); bi.href = inspectorBookmarklet();
   bi.addEventListener('click', e => { e.preventDefault(); toast('Drag this to your bookmarks bar, then click it on Apple Music with the lyrics view open', 3600); });
