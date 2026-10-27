@@ -3124,7 +3124,16 @@ function syl(w){   // rough English syllable count, so long words get more time 
   w = w.toLowerCase().replace(/[^a-z]/g, ''); if (w.length <= 3) return 1;
   w = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').replace(/^y/, ''); const m = w.match(/[aeiouy]{1,3}/g); return Math.max(1, m ? m.length : 1);
 }
-function wordAt(ly, words){   // which word of the line is being sung: exact if the lyrics have word times, otherwise shared out by syllables
+const WLOCK = { key: '', wi: 0, frac: 0, pos: 0 };
+function wordAt(ly, words){   // never step backwards within a line, so the ball/cursor can't bounce back and forth
+  const r = wordAtRaw(ly, words); if (!r || !ly.cur) return r;
+  const key = ly.start + '|' + ly.cur.s;
+  if (key !== WLOCK.key || ly.pos < WLOCK.pos - 0.5){ WLOCK.key = key; WLOCK.wi = r.wi; WLOCK.frac = r.frac; WLOCK.pos = ly.pos; return r; }
+  WLOCK.pos = ly.pos;
+  if (r.wi > WLOCK.wi || (r.wi === WLOCK.wi && r.frac >= WLOCK.frac)){ WLOCK.wi = r.wi; WLOCK.frac = r.frac; return r; }
+  return Object.assign({}, r, { wi: WLOCK.wi, frac: WLOCK.wi === r.wi ? WLOCK.frac : 1 });
+}
+function wordAtRaw(ly, words){   // which word of the line is being sung: exact if the lyrics have word times, otherwise shared out by syllables
   if (!ly || !words.length) return null;
   const wt = ly.cur && ly.cur.wt;
   if (wt && wt.length === words.length){
