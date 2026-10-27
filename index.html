@@ -309,6 +309,10 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
           <button class="btn" data-mode="march" aria-pressed="false">Marching Band</button>
           <button class="btn" data-mode="cam" aria-pressed="false">Mirror Cam</button>
           <button class="btn" data-mode="ninja" aria-pressed="false">Ninja Slash</button>
+          <button class="btn" data-mode="kinetic" aria-pressed="false">Kinetic Type</button>
+          <button class="btn" data-mode="texts" aria-pressed="false">Text Messages</button>
+          <button class="btn" data-mode="flap" aria-pressed="false">Split-Flap Board</button>
+          <button class="btn" data-mode="crawl" aria-pressed="false">Lyric Crawl</button>
         </div>
         <div class="group" role="group" aria-label="Effects" id="fxGroup">
           <span class="glabel">FX</span>
@@ -393,7 +397,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
   <div class="sset">
     <label class="shead" for="customText">Your text</label>
     <input type="text" id="customText" maxlength="24" placeholder="AFTERGLOW" autocomplete="off" spellcheck="false">
-    <p class="shint">Shows on Classic Bars, the Vinyl label, Particle Text, the LED Board, Neon Sign, Laptop, Karaoke Ball and Marching Band. Leave it empty for Afterglow.</p>
+    <p class="shint">Shows on Classic Bars, the Vinyl label, Particle Text, the LED Board, Neon Sign, Laptop, Karaoke Ball, the lyric modes and Marching Band. Leave it empty for Afterglow.</p>
     <div class="tog"><span><b>Use the song name</b><em>Swap your text for the name of the song playing, when it's a file you opened. Apple Music in another tab can't share its song name with this page, so your text is used then.</em></span><button class="btn togb" data-tog="songText" aria-pressed="false">Off</button></div>
     <div class="tog"><span><b>Laptop types the lyrics</b><em>Looks up the playing song's lyrics on LRCLIB, a free lyrics database, and types them out. Needs the song name (a file, or the Apple Music link) and an internet connection; falls back to your text.</em></span><button class="btn togb" data-tog="lyrics" aria-pressed="true">On</button></div>
     <label class="shead" style="margin-top:14px;display:block">Apple Music link</label>
@@ -429,8 +433,8 @@ const PALETTES = {
   gold:    { name:'Gold',    bg:'#0a0805', stops:['#7a4b0c','#c8891b','#ffd76a','#fff8e1'] },
 };
 const PAL_KEYS = Object.keys(PALETTES);
-const MODES = ['orbit','ridge','spectrum','scope','warp','galaxy','synth','kaleido','lava','hyper','fireworks','city','dna','fire','rain','sphere','chrome','aurora','ink','ripples','classic','mandala','lightning','vinyl','hifi','cymatics','blackhole','plexus','spectro','strings','ecg','radar','lasers','trip','tunnel','ptext','topo','pendulum','tree','sunflower','hex','led','bubbles','jelly','blocks','pads','floor','sub','step','bounce','cube','invaders','snake','domino','glass','slots','neon','pinball','mosh','seismo','type','highway','koi','slinky','origami','fairy','flag','karaoke','march','cam','ninja'];
-const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash' };
+const MODES = ['orbit','ridge','spectrum','scope','warp','galaxy','synth','kaleido','lava','hyper','fireworks','city','dna','fire','rain','sphere','chrome','aurora','ink','ripples','classic','mandala','lightning','vinyl','hifi','cymatics','blackhole','plexus','spectro','strings','ecg','radar','lasers','trip','tunnel','ptext','topo','pendulum','tree','sunflower','hex','led','bubbles','jelly','blocks','pads','floor','sub','step','bounce','cube','invaders','snake','domino','glass','slots','neon','pinball','mosh','seismo','type','highway','koi','slinky','origami','fairy','flag','karaoke','march','cam','ninja','kinetic','texts','flap','crawl'];
+const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 
 const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
@@ -3627,7 +3631,155 @@ function drawNinja(){
   NJ.slash *= Math.pow(0.82, k); NJ.pop *= Math.pow(0.85, k);
 }
 
-const DRAW = { orbit:drawOrbit, ridge:drawRidge, spectrum:drawSpectrum, scope:drawScope, warp:drawWarp, galaxy:drawGalaxy, synth:drawSynth, kaleido:drawKaleido, lava:drawLava, hyper:drawHyper, fireworks:drawFireworks, city:drawCity, dna:drawDNA, fire:drawFire, rain:drawRain, sphere:drawSphere , chrome:drawChrome, aurora:drawAurora, ink:drawInk, ripples:drawRipples, classic:drawClassic, mandala:drawMandala, lightning:drawLightning, vinyl:drawVinyl, hifi:drawHifi , cymatics:drawCymatics, blackhole:drawBlackHole, plexus:drawPlexus, spectro:drawSpectro, strings:drawStrings, ecg:drawECG, radar:drawRadar, lasers:drawLasers, trip:drawTrip , tunnel:drawTunnel, ptext:drawPText, topo:drawTopo, pendulum:drawPendulum, tree:drawTree, sunflower:drawSunflower, hex:drawHex, led:drawLED, bubbles:drawBubbles , jelly:drawJelly, blocks:drawBlocks, pads:drawPads, floor:drawFloor, sub:drawSub, step:drawStep, bounce:drawBounce, cube:drawCube, invaders:drawInvaders, snake:drawSnake, domino:drawDomino, glass:drawGlass, slots:drawSlots, neon:drawNeon, pinball:drawPinball, mosh:drawMosh, seismo:drawSeismo, type:drawType, highway:drawHighway, koi:drawKoi, slinky:drawSlinky, origami:drawOrigami, fairy:drawFairy, flag:drawFlag, karaoke:drawKaraoke, march:drawMarch, cam:drawCam, ninja:drawNinja };
+
+/* ---------- lyric modes: Kinetic Type, Text Messages, Split-Flap Board, Lyric Crawl ---------- */
+// One shared view of "where are we in the lyrics": all lines, which one is being sung, how far through it we are,
+// and which word. Falls back to your text (a new pass every bar) when there are no lyrics
+const LYF = { i: 0, beats: 0, t0: 0 };
+function lyrNow(){
+  const ly = settings.lyrics ? lyricLine() : null;
+  if (ly && ly.L && ly.L.length && ((ly.cur && ly.cur.s) || ly.next)){
+    const cs = ly.cur ? ly.cur.s : '', words = cs.split(/\s+/).filter(Boolean);
+    const span = Math.max(0.3, Math.min((ly.end - ly.start)*0.75, (words.length || 1)*0.42)), prog = clamp((ly.pos - ly.start)/span, 0, 1);
+    return { lines: ly.L.map(x => x.s), i: ly.i, cur: cs, words, prog, wi: words.length ? Math.min(words.length - 1, Math.floor(prog*words.length)) : -1, next: ly.next ? ly.next.s : '', lyrics: true };
+  }
+  const txt = brandText(), words = txt.split(/\s+/).filter(Boolean);
+  if (F.beatNow){ LYF.beats++; LYF.t0 = performance.now(); if (LYF.beats % 4 === 0) LYF.i++; }
+  const prog = clamp(((LYF.beats % 4) + Math.min(1, (performance.now() - LYF.t0)/bpmMs()))/4, 0, 1);
+  return { lines: new Array(LYF.i + 2).fill(txt), i: LYF.i, cur: txt, words, prog, wi: Math.min(words.length - 1, Math.floor(prog*words.length)), next: txt, lyrics: false };
+}
+
+// Kinetic Type: lyric-video style. Each word of the line being sung slams in huge, one at a time; the words already
+// sung stack up smaller above it. The kick shakes the whole thing and the drop flashes the screen
+const KIN = { key: '', wi: -1, t: 0, flash: 0, rot: [], arm: true };
+function drawKinetic(){
+  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, cy = top + h*0.55, L = lyrNow(), now = performance.now();
+  const key = L.i + '|' + L.cur;
+  if (key !== KIN.key){ KIN.key = key; KIN.wi = -1; KIN.rot = L.words.map(() => rnd(-0.09, 0.09)); }
+  if (L.wi !== KIN.wi){ KIN.wi = L.wi; KIN.t = now; }
+  if (F.drop > 0.95 && KIN.arm){ KIN.arm = false; KIN.flash = 1; } else if (F.drop < 0.5) KIN.arm = true;
+  fade(0.85);
+  const bg = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, h)*0.7); bg.addColorStop(0, col(0.5, 0.12 + F.bass*0.2)); bg.addColorStop(1, col(0.5, 0)); g.fillStyle = bg; g.fillRect(0, top, W, h);
+  if (KIN.flash > 0.02){ g.fillStyle = col(0.9, KIN.flash*0.5); g.fillRect(0, top, W, h); KIN.flash *= Math.pow(0.9, k); }
+  const sx = reduceMotion ? 0 : (Math.random() - 0.5)*F.kickEnv*14, sy = reduceMotion ? 0 : (Math.random() - 0.5)*F.kickEnv*10;
+  g.save(); g.translate(sx, sy); g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (KIN.wi >= 0){
+    const w = L.words[KIN.wi], t = clamp((now - KIN.t)/160, 0, 1), pop = 1 + (1 - t)*(1 - t)*0.7;   // the new word lands big and settles
+    let fs = Math.min(h*0.26, W*0.85/Math.max(2, w.length*0.62)); g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D;
+    const mw = g.measureText(w).width; if (mw > W*0.88){ fs *= W*0.88/mw; g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D; }
+    g.save(); g.translate(cx, cy); g.rotate(KIN.rot[KIN.wi] || 0); g.scale(pop, pop);
+    g.shadowColor = col(0.85, 0.8); g.shadowBlur = 30*(1 - t) + F.kickEnv*20; g.fillStyle = col(0.85, 1); g.fillText(w, 0, 0); g.restore();
+    let y = cy - fs*0.75;   // words already sung, stacked above, getting smaller and dimmer
+    for (let j = KIN.wi - 1, n = 0; j >= 0 && n < 4; j--, n++){
+      const f2 = fs*(0.42 - n*0.06); g.font = '800 ' + Math.round(f2) + 'px ' + FONT_D; y -= f2*1.05;
+      g.save(); g.translate(cx, y); g.rotate(KIN.rot[j] || 0); g.fillStyle = col(0.3 + n*0.12, 0.85 - n*0.18); g.fillText(L.words[j], 0, 0); g.restore();
+    }
+  }
+  g.restore();
+  if (L.next && L.next !== L.cur){ g.font = '600 ' + Math.round(Math.min(h*0.035, 22)) + 'px ' + FONT_M; g.textAlign = 'center'; g.fillStyle = col(0.6, 0.45); g.fillText(L.next.slice(0, 60), cx, area.bottom - h*0.07); }
+}
+
+// Text Messages: a phone with the lyrics arriving as chat bubbles, alternating sides like a conversation. A typing
+// bubble (•••) shows up before each line lands. The screen glows with the bass
+const TXM = { msgs: [], key: '', pop: 0 };
+function drawTexts(){
+  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, L = lyrNow(), now = performance.now();
+  const ph = h*0.92, pw = Math.min(W*0.9, ph*0.5), px = cx - pw/2, py = top + h*0.04;
+  if (L.cur && L.i + '|' + L.cur !== TXM.key){ TXM.key = L.i + '|' + L.cur; TXM.msgs.push({ s: L.cur, me: TXM.msgs.length % 2 === 1, t: now }); if (TXM.msgs.length > 30) TXM.msgs.shift(); }
+  fade(1);
+  const glow = g.createRadialGradient(cx, top + h/2, 0, cx, top + h/2, Math.max(W, h)*0.6); glow.addColorStop(0, col(0.5, 0.08 + F.bass*0.15)); glow.addColorStop(1, col(0.5, 0)); g.fillStyle = glow; g.fillRect(0, top, W, h);
+  g.fillStyle = '#0a0a0e'; rr(px - 8, py - 8, pw + 16, ph + 16, pw*0.13); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 2; g.stroke();   // the phone
+  g.save(); rr(px, py, pw, ph, pw*0.11); g.clip();
+  g.fillStyle = '#111116'; g.fillRect(px, py, pw, ph);
+  const hh = ph*0.11, sn = songNow(), name = (sn && sn.artist) || (sn && sn.title) || brandText();
+  g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(px, py, pw, hh);   // chat header: an avatar and the artist's name
+  g.fillStyle = col(0.5, 0.9); g.beginPath(); g.arc(cx, py + hh*0.42, hh*0.22, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#fff'; g.font = '700 ' + Math.round(hh*0.22) + 'px ' + FONT_D; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name.slice(0, 22), cx, py + hh*0.82);
+  g.fillStyle = '#000'; rr(cx - pw*0.15, py + 6, pw*0.3, hh*0.14, hh*0.07); g.fill();   // the notch
+  const fs = Math.max(12, Math.round(pw*0.062)), lh = fs*1.3, maxW = pw*0.74, pad = fs*0.6;
+  g.font = '600 ' + fs + 'px ' + FONT_D; g.textAlign = 'left'; g.textBaseline = 'top';
+  const wrap = s => { const out = []; let line = ''; for (const w of s.split(/\s+/)){ const t2 = line ? line + ' ' + w : w; if (g.measureText(t2).width > maxW - pad*2 && line){ out.push(line); line = w; } else line = t2; } if (line) out.push(line); return out; };
+  // newest at the bottom; a typing bubble first if the next line is about to come
+  const items = TXM.msgs.map(m => ({ ...m, lines: wrap(m.s) }));
+  const typing = L.lyrics && L.prog > 0.75 && L.next && L.next !== L.cur;
+  let y = py + ph - fs*1.2;
+  if (typing){ const me = TXM.msgs.length % 2 === 1, bw = fs*3.2, bh = fs*1.8, bx = me ? px + pw - pad - bw : px + pad; y -= bh;
+    g.fillStyle = me ? col(0.55, 0.9) : '#2a2a31'; rr(bx, y, bw, bh, bh/2); g.fill();
+    for (let d = 0; d < 3; d++){ const a = 0.35 + 0.65*Math.max(0, Math.sin(now/180 - d*0.9)); g.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')'; g.beginPath(); g.arc(bx + bw*(0.28 + d*0.22), y + bh/2, fs*0.16, 0, Math.PI*2); g.fill(); }
+    y -= fs*0.6; }
+  for (let i = items.length - 1; i >= 0 && y > py + hh; i--){
+    const m = items[i], bw = Math.min(maxW, Math.max(...m.lines.map(l => g.measureText(l).width)) + pad*2), bh = m.lines.length*lh + pad*1.2;
+    const age = clamp((now - m.t)/220, 0, 1), sc = 0.6 + 0.4*(1 - Math.pow(1 - age, 3)), newest = i === items.length - 1;
+    y -= bh; const bx = m.me ? px + pw - pad - bw : px + pad;
+    g.save(); g.translate(m.me ? bx + bw : bx, y + bh); g.scale(sc, sc); g.translate(-(m.me ? bx + bw : bx), -(y + bh));
+    g.fillStyle = m.me ? col(0.55, newest ? 1 : 0.75) : (newest ? '#33333c' : '#25252c'); rr(bx, y, bw, bh, Math.min(bh/2, fs*1.1)); g.fill();
+    g.fillStyle = m.me ? '#fff' : (newest ? '#fff' : 'rgba(255,255,255,0.75)'); m.lines.forEach((l, q) => g.fillText(l, bx + pad, y + pad*0.6 + q*lh));
+    g.restore();
+    y -= fs*0.5;
+  }
+  g.restore();
+}
+
+// Split-Flap Board: an old station departure board. The last few lyric lines and the one being sung are on the
+// board; whenever a letter changes, its flap clatters through random letters before landing. The next line waits underneath
+const FLAP = { cells: null, cols: 0, rows: 0 };
+const FLAP_CH = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?\'-&';
+function drawFlap(){
+  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, L = lyrNow();
+  const cols = W < 600 ? 16 : 26, rows = 7;
+  if (!FLAP.cells || FLAP.cols !== cols){ FLAP.cols = cols; FLAP.rows = rows; FLAP.cells = Array.from({ length: cols*rows }, () => ({ ch: ' ', tgt: ' ', flips: 0, t: 0 })); }
+  const fit = s => { s = (s || '').toUpperCase().replace(/[^A-Z0-9 .,!?'&-]/g, ''); if (s.length <= cols) return [s]; const out = []; let line = ''; for (const w of s.split(' ')){ if ((line + ' ' + w).trim().length > cols){ out.push(line); line = w; } else line = (line + ' ' + w).trim(); } out.push(line); return out; };
+  const past = []; for (let q = 0; q < L.i; q++) if (L.lines[q]) past.push(L.lines[q]);
+  const cur = fit(L.cur), lines = past.slice(-3).flatMap(fit).slice(-(rows - 2 - cur.length + 1)).concat(cur).slice(-(rows - 2)), nxt = fit(L.next && L.next !== L.cur ? 'NEXT  ' + L.next : '')[0] || '';
+  const want = [];   // 5 lyric rows + a gap + the "next" row
+  for (let r = 0; r < rows - 2; r++) want.push((lines[r] || '').padEnd(cols).slice(0, cols));
+  want.push(' '.repeat(cols)); want.push(nxt.padEnd(cols).slice(0, cols));
+  FLAP.cells.forEach((c, i) => { const t = want[(i/cols)|0][i % cols]; if (t !== c.tgt){ c.tgt = t; c.flips = 4 + ((Math.random()*8)|0); } });
+  fade(1);
+  const cw = Math.min(W*0.9/cols, h*0.82/rows/1.45), chh = cw*1.4, gap = cw*0.1, bw = cols*(cw + gap), bh = rows*(chh + gap), bx = cx - bw/2, by = top + (h - bh)/2 + h*0.03;
+  g.fillStyle = '#121214'; rr(bx - cw*0.6, by - chh*0.9, bw + cw*1.2, bh + chh*1.3, cw*0.4); g.fill();
+  g.font = '700 ' + Math.round(chh*0.32) + 'px ' + FONT_M; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = col(0.8, 0.85);
+  g.fillText('LYRICS · NOW SINGING', bx, by - chh*0.45); g.textAlign = 'right'; g.fillStyle = col(0.3, 0.8 + F.kickEnv*0.2); g.fillText('●', bx + bw, by - chh*0.45);
+  g.font = '700 ' + Math.round(chh*0.7) + 'px ' + FONT_M; g.textAlign = 'center';
+  FLAP.cells.forEach((c, i) => {
+    const r = (i/cols)|0, x = bx + (i % cols)*(cw + gap), y = by + r*(chh + gap);
+    if (c.flips > 0){ c.t += k; if (c.t > 1.6){ c.t = 0; c.flips--; c.ch = c.flips ? FLAP_CH[(Math.random()*FLAP_CH.length)|0] : c.tgt; } }
+    g.fillStyle = '#1d1d21'; rr(x, y, cw, chh, cw*0.12); g.fill();
+    if (c.flips > 0){ g.fillStyle = '#26262b'; rr(x, y, cw, chh/2, cw*0.12); g.fill(); }   // a flap mid-turn
+    const isNext = r === rows - 1, isCur = !isNext && want[r].trim() && r === Math.max(...want.slice(0, rows - 2).map((w, q) => w.trim() ? q : -1));
+    g.fillStyle = isNext ? col(0.6, 0.55) : isCur ? col(0.85, 1) : col(0.35, 0.85); g.fillText(c.ch, x + cw/2, y + chh*0.54);
+    g.fillStyle = '#0b0b0d'; g.fillRect(x, y + chh/2 - 1, cw, 2);   // the split line across every flap
+  });
+}
+
+// Lyric Crawl: lyrics scrolling away into space like a film's opening crawl. The line being sung sits low and bright,
+// sung lines tilt off into the distance, and the stars twinkle on the hi-hats
+const CRAWL = { pos: 0, stars: null };
+function drawCrawl(){
+  const k = p3tick(), top = area.top, bot = area.bottom, h = bot - top, cx = W/2, L = lyrNow();
+  if (!CRAWL.stars) CRAWL.stars = Array.from({ length: 160 }, () => ({ x: Math.random(), y: Math.random(), z: Math.random(), tw: 0 }));
+  const target = L.i + L.prog*0.9; CRAWL.pos += (target - CRAWL.pos)*Math.min(1, 0.12*k); if (Math.abs(target - CRAWL.pos) > 6) CRAWL.pos = target;
+  fade(1);
+  if (F.hatNow) for (let i = 0; i < 6; i++) CRAWL.stars[(Math.random()*CRAWL.stars.length)|0].tw = 1;
+  for (const st of CRAWL.stars){ st.tw *= Math.pow(0.9, k); const a = 0.25 + st.z*0.5 + st.tw*0.6, r = 0.6 + st.z*1.2 + st.tw*1.2; g.fillStyle = 'rgba(255,255,255,' + Math.min(1, a).toFixed(2) + ')'; g.fillRect(st.x*W, top + st.y*h, r, r); }
+  const hz = top + h*0.08, base = bot - h*0.08, fs0 = Math.min(h*0.075, W*0.06);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let j = Math.max(0, Math.floor(CRAWL.pos) - 14); j <= Math.floor(CRAWL.pos) + 3 && j < L.lines.length; j++){
+    const s = L.lines[j]; if (!s) continue;
+    const u = CRAWL.pos - j + 0.8, d = 1/(1 + Math.max(-0.7, u)*0.55);   // u: how far up the crawl this line is; d: perspective scale
+    const y = hz + (base - hz)*Math.pow(d, 1.25), fs = fs0*d; if (fs < 5 || y > bot) continue;
+    const isCur = j === L.i, a = clamp(d*1.2, 0, 1)*(j > L.i ? 0.35 : 1);
+    g.save(); g.translate(cx, y); g.scale(1, 0.85 + d*0.15);
+    g.font = '800 ' + Math.round(fs) + 'px ' + FONT_D;
+    let wdt = g.measureText(s).width, sc = Math.min(1, W*0.82*d/Math.max(1, wdt)); g.scale(sc, 1);
+    if (isCur){ g.shadowColor = col(0.85, 0.9); g.shadowBlur = 16 + F.kickEnv*20; }
+    g.fillStyle = isCur ? col(0.85, 1) : col(0.25 + d*0.5, a*0.9); g.fillText(s, 0, 0);
+    g.restore();
+  }
+  const fadeTop = g.createLinearGradient(0, top, 0, top + h*0.3); fadeTop.addColorStop(0, BGS); fadeTop.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = fadeTop; g.fillRect(0, top, W, h*0.3);
+}
+
+const DRAW = { orbit:drawOrbit, ridge:drawRidge, spectrum:drawSpectrum, scope:drawScope, warp:drawWarp, galaxy:drawGalaxy, synth:drawSynth, kaleido:drawKaleido, lava:drawLava, hyper:drawHyper, fireworks:drawFireworks, city:drawCity, dna:drawDNA, fire:drawFire, rain:drawRain, sphere:drawSphere , chrome:drawChrome, aurora:drawAurora, ink:drawInk, ripples:drawRipples, classic:drawClassic, mandala:drawMandala, lightning:drawLightning, vinyl:drawVinyl, hifi:drawHifi , cymatics:drawCymatics, blackhole:drawBlackHole, plexus:drawPlexus, spectro:drawSpectro, strings:drawStrings, ecg:drawECG, radar:drawRadar, lasers:drawLasers, trip:drawTrip , tunnel:drawTunnel, ptext:drawPText, topo:drawTopo, pendulum:drawPendulum, tree:drawTree, sunflower:drawSunflower, hex:drawHex, led:drawLED, bubbles:drawBubbles , jelly:drawJelly, blocks:drawBlocks, pads:drawPads, floor:drawFloor, sub:drawSub, step:drawStep, bounce:drawBounce, cube:drawCube, invaders:drawInvaders, snake:drawSnake, domino:drawDomino, glass:drawGlass, slots:drawSlots, neon:drawNeon, pinball:drawPinball, mosh:drawMosh, seismo:drawSeismo, type:drawType, highway:drawHighway, koi:drawKoi, slinky:drawSlinky, origami:drawOrigami, fairy:drawFairy, flag:drawFlag, karaoke:drawKaraoke, march:drawMarch, cam:drawCam, ninja:drawNinja, kinetic:drawKinetic, texts:drawTexts, flap:drawFlap, crawl:drawCrawl };
 
 /* ---------- drop detection ---------- */
 /* drops: "the low end went away (or wasn't there yet), then slammed in". Measured on the raw kick-band power
