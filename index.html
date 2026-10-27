@@ -390,7 +390,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
     <p class="shint">The drop always changes it straight away. Faster settings give the sand less time to settle into a shape.</p>
   </div>
   <div class="sset">
-    <div class="shead">Auto playlist <span id="poolCount"></span><span class="sbtns"><button class="mini" id="poolAll">All</button><button class="mini" id="poolNone">None</button></span></div>
+    <div class="shead">Auto playlist <span id="poolCount"></span><span class="sbtns"><button class="mini" id="poolLyrics" title="Only the lyric modes, with Auto on">🎤 Lyrics</button><button class="mini" id="poolAll">All</button><button class="mini" id="poolNone">None</button></span></div>
     <div class="chips" id="poolChips" role="group" aria-label="Modes Auto can use"></div>
     <p class="shint">Tap a mode to leave it out of Auto. Auto needs at least 2 modes, otherwise it uses all of them.</p>
   </div>
@@ -4252,6 +4252,13 @@ MODES.forEach(m => {
   poolChips.appendChild(b);
 });
 $('#poolAll').addEventListener('click', () => { settings.autoSkip = []; autoBag = []; syncSettingsPanel(); save(); });
+// lyrics playlist: Auto rotates through just the lyric modes
+const LYRIC_MODES = ['type', 'karaoke', 'kinetic', 'texts', 'flap', 'crawl'];
+$('#poolLyrics').addEventListener('click', () => {
+  settings.autoSkip = MODES.filter(m => !LYRIC_MODES.includes(m)); autoBag = [];
+  if (!LYRIC_MODES.includes(settings.mode)) pickMode(LYRIC_MODES[(Math.random()*LYRIC_MODES.length)|0]);
+  setAuto(true); syncSettingsPanel(); save(); toast('Lyrics playlist on: Auto now rotates the 6 lyric modes', 2600);
+});
 $('#poolNone').addEventListener('click', () => { settings.autoSkip = MODES.slice(); autoBag = []; syncSettingsPanel(); save(); });
 ctext.addEventListener('input', () => { settings.text = ctext.value.slice(0, 24); save(); });
 { const bm = $('#bmLink'), url = location.href.split('#')[0], ok = location.protocol === 'https:' && window.top === window;
