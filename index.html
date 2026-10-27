@@ -401,6 +401,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
     <div class="tog"><span><b>Use the song name</b><em>Swap your text for the name of the song playing, when it's a file you opened. Apple Music in another tab can't share its song name with this page, so your text is used then.</em></span><button class="btn togb" data-tog="songText" aria-pressed="false">Off</button></div>
     <div class="tog"><span><b>Laptop types the lyrics</b><em>Looks up the playing song's lyrics on LRCLIB, a free lyrics database, and types them out. Needs the song name (a file, or the Apple Music link) and an internet connection; falls back to your text.</em></span><button class="btn togb" data-tog="lyrics" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Lyrics timing</b><em id="lyrOffTxt"></em></span><input type="range" id="lyrOff" min="-1" max="2" step="0.05" aria-label="Lyrics timing"></div>
+    <div class="tog"><span><b>Listen for the singing</b><em>Experimental. Hears each new syllable in the voice range and moves the karaoke ball to it, within the current line. Only used when the lyrics have no exact word times. Drums, backing vocals and ad-libs can fool it.</em></span><button class="btn togb" data-tog="listen" aria-pressed="false">Off</button></div>
     <label class="shead" style="margin-top:14px;display:block">Apple Music link</label>
     <a class="btn" id="bmLink" href="#" draggable="true" style="display:inline-flex;margin-top:6px">♪ Afterglow link</a>
     <a class="btn" id="bmInspect" href="#" draggable="true" style="display:inline-flex;margin-top:6px;margin-left:6px">🔍 Lyrics inspector</a>
@@ -437,7 +438,7 @@ const PAL_KEYS = Object.keys(PALETTES);
 const MODES = ['orbit','ridge','spectrum','scope','warp','galaxy','synth','kaleido','lava','hyper','fireworks','city','dna','fire','rain','sphere','chrome','aurora','ink','ripples','classic','mandala','lightning','vinyl','hifi','cymatics','blackhole','plexus','spectro','strings','ecg','radar','lasers','trip','tunnel','ptext','topo','pendulum','tree','sunflower','hex','led','bubbles','jelly','blocks','pads','floor','sub','step','bounce','cube','invaders','snake','domino','glass','slots','neon','pinball','mosh','seismo','type','highway','koi','slinky','origami','fairy','flag','karaoke','march','cam','ninja','kinetic','texts','flap','crawl'];
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 
-const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
+const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
 try {
   const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -452,7 +453,7 @@ try {
     if (typeof s.text === 'string') settings.text = s.text.slice(0, 24);
     if (typeof s.lyrOff === 'number' && isFinite(s.lyrOff)) settings.lyrOff = clamp(s.lyrOff, -1, 2);
     if ([2, 4, 8].includes(s.cymEvery)) settings.cymEvery = s.cymEvery;
-    for (const k of ['agc', 'xfade', 'autoDrop', 'songText', 'lyrics']) if (typeof s[k] === 'boolean') settings[k] = s[k];
+    for (const k of ['agc', 'xfade', 'autoDrop', 'songText', 'lyrics', 'listen']) if (typeof s[k] === 'boolean') settings[k] = s[k];
     if (['auto', 'kick', 'snare', 'all'].includes(s.beatSrc)) settings.beatSrc = s.beatSrc;
     if (s.fx && typeof s.fx === 'object') settings.fx = { drops: s.fx.drops !== false, vhs: s.fx.vhs === true, mirror: [0, 2, 4].includes(s.fx.mirror) ? s.fx.mirror : 0, glow: s.fx.glow === true };
   }
@@ -765,9 +766,35 @@ function bpmEstimate(){
 const AGC = { peak: 0.6, gain: 1 }, BAVG = new Float32Array(NB);
 if (DBG){ DBG.agc = () => ({ peak: AGC.peak, gain: AGC.gain }); DBG.F = F; }
 let pitchPrev = -1, pitchShown = 0;
+// "Listen for the singing": spots new syllables as sudden rises in the voice range (300 Hz to 3 kHz) that the cymbal range doesn't share
+const VOC = { prev: null, hist: [], on: [], last: 0 };
+function vocalOnsets(now){
+  const binHz = AC.sampleRate/2048, a = Math.round(300/binHz), b = Math.round(3000/binHz), c = Math.round(5000/binHz), d = Math.min(bandByte.length - 1, Math.round(10000/binHz));
+  if (!VOC.prev) VOC.prev = new Uint8Array(bandByte.length);
+  const e0 = Math.max(1, Math.round(40/binHz)), e1 = Math.round(200/binHz); let vf = 0, hf = 0, lv = 0, kf = 0;
+  for (let i = e0; i < e1; i++){ const x = bandByte[i] - VOC.prev[i]; if (x > 0) kf += x; }
+  for (let i = a; i < b; i++){ const x = bandByte[i] - VOC.prev[i]; if (x > 0) vf += x; lv += bandByte[i]; }
+  for (let i = c; i < d; i++){ const x = bandByte[i] - VOC.prev[i]; if (x > 0) hf += x; }
+  VOC.prev.set(bandByte); vf /= (b - a); hf /= Math.max(1, d - c); kf /= Math.max(1, e1 - e0); lv /= (b - a);
+  const H = VOC.hist; H.push(vf); if (H.length > 90) H.shift();
+  let m = 0; for (const x of H) m += x; m /= H.length; let v = 0; for (const x of H) v += (x - m)*(x - m); const sd = Math.sqrt(v/H.length);
+  const t = now/1000;
+  if (H.length > 20 && lv > 40 && vf > m + 1.6*sd + 0.6 && vf > hf*1.3 && vf > kf*0.7 && t - VOC.last > 0.11){ VOC.last = t; VOC.on.push(t); while (VOC.on.length && VOC.on[0] < t - 20) VOC.on.shift(); }
+}
+function heardWord(ly, words, guess){   // nudge the guessed word to the syllables actually heard since the line started
+  if (!settings.listen || !F.live || !guess) return guess;
+  const t = performance.now()/1000, lineAt = t - (ly.pos - ly.start), on = VOC.on.filter(x => x >= lineAt - 0.1);
+  if (!on.length) return guess;
+  const lastOn = on[on.length - 1]; let k = on.length - 1, wi = 0;
+  for (let q = 0; q < words.length; q++){ wi = q; k -= syl(words[q]); if (k < 0) break; }
+  if (t - lastOn > 1.5 && guess.wi > wi) return guess;   // gone quiet: trust the guess again
+  wi = clamp(wi, Math.max(0, guess.wi - 1), Math.min(words.length - 1, guess.wi + 1));
+  return { wi, frac: clamp((t - lastOn)/Math.max(0.12, guess.dur/1000), 0, 1), dur: guess.dur, timed: false, heard: true };
+}
 function analyzeLive(now){
   analyser.getByteFrequencyData(freqByte);
   anBand.getByteFrequencyData(bandByte);
+  if (settings.listen) vocalOnsets(now);
   if (DBG && DBG.lat){ const sr = AC.sampleRate; DBG.lat.push([now, freqByte[Math.round(1000/(sr/FFT))], bandByte[Math.round(1000/(sr/2048))]]); }
   analyser.getFloatTimeDomainData(timeF);
   anBeat.getByteFrequencyData(beatByte);
@@ -3107,8 +3134,8 @@ function wordAt(ly, words){   // which word of the line is being sung: exact if 
   }
   const wts = words.map(w => syl(w) + 0.35), tot = wts.reduce((a, b) => a + b, 0), span = Math.max(0.3, Math.min((ly.end - ly.start)*0.75, tot*0.22));
   const e = clamp((ly.pos - ly.start)/span, 0, 0.9999)*tot; let acc = 0;
-  for (let q = 0; q < wts.length; q++){ if (e < acc + wts[q]) return { wi: q, frac: (e - acc)/wts[q], dur: wts[q]/tot*span*1000, timed: false }; acc += wts[q]; }
-  return { wi: words.length - 1, frac: 1, dur: 300, timed: false };
+  for (let q = 0; q < wts.length; q++){ if (e < acc + wts[q]) return heardWord(ly, words, { wi: q, frac: (e - acc)/wts[q], dur: wts[q]/tot*span*1000, timed: false }); acc += wts[q]; }
+  return heardWord(ly, words, { wi: words.length - 1, frac: 1, dur: 300, timed: false });
 }
 function typedSoFar(ly){   // how much of the line has been sung, in characters, following the word timing
   const s = ly.cur ? ly.cur.s : '', words = s.split(/\s+/).filter(Boolean), wp = wordAt(ly, words);
