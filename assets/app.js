@@ -24,7 +24,7 @@ const PAL_KEYS = Object.keys(PALETTES);
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 const MODES = Object.keys(MODE_NAMES);
 
-const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], quality:'high', reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
+const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
 try {
   const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -36,6 +36,7 @@ try {
     settings.auto = s.auto === true;
     if ([8, 16, 32].includes(s.autoEvery)) settings.autoEvery = s.autoEvery;
     if (Array.isArray(s.favorites)) settings.favorites = MODES.filter(m => s.favorites.includes(m));
+    settings.autoFav = s.autoFav === true;
     if (['low', 'balanced', 'high'].includes(s.quality)) settings.quality = s.quality;
     settings.reduceFlashes = s.reduceFlashes === true;
     if (Array.isArray(s.autoSkip)) settings.autoSkip = MODES.filter(m => s.autoSkip.includes(m));
@@ -3955,7 +3956,7 @@ MODES.forEach(m => {
   const star = document.createElement('button'); star.className = 'favorite'; star.dataset.favorite = m;
   star.addEventListener('click', () => {
     const saved = new Set(settings.favorites); saved.has(m) ? saved.delete(m) : saved.add(m);
-    settings.favorites = MODES.filter(x => saved.has(x)); save(); filterModes();
+    settings.favorites = MODES.filter(x => saved.has(x)); if (settings.autoFav) favPlaylist(); save(); filterModes();
     if (row.hidden) modeSearch.focus();
   });
   row.append(b, star); modeChips.appendChild(row);
@@ -3992,18 +3993,26 @@ const cymBtns = Array.from(document.querySelectorAll('[data-cym]'));
 cymBtns.forEach(b => b.addEventListener('click', () => { settings.cymEvery = +b.dataset.cym; CYM.beats = 0; syncSettingsPanel(); save(); }));
 MODES.forEach(m => {
   const b = document.createElement('button'); b.className = 'chip'; b.dataset.pool = m; b.textContent = MODE_NAMES[m];
-  b.addEventListener('click', () => { const sk = new Set(settings.autoSkip); sk.has(m) ? sk.delete(m) : sk.add(m); settings.autoSkip = MODES.filter(x => sk.has(x)); autoBag = []; syncSettingsPanel(); save(); });
+  b.addEventListener('click', () => { const sk = new Set(settings.autoSkip); sk.has(m) ? sk.delete(m) : sk.add(m); settings.autoSkip = MODES.filter(x => sk.has(x)); settings.autoFav = false; autoBag = []; syncSettingsPanel(); save(); });
   poolChips.appendChild(b);
 });
-$('#poolAll').addEventListener('click', () => { settings.autoSkip = []; autoBag = []; syncSettingsPanel(); save(); });
+$('#poolAll').addEventListener('click', () => { settings.autoSkip = []; settings.autoFav = false; autoBag = []; syncSettingsPanel(); save(); });
 // lyrics playlist: Auto rotates through just the lyric modes
 const LYRIC_MODES = ['type', 'karaoke', 'kinetic', 'texts', 'flap', 'crawl'];
 $('#poolLyrics').addEventListener('click', () => {
-  settings.autoSkip = MODES.filter(m => !LYRIC_MODES.includes(m)); autoBag = [];
+  settings.autoSkip = MODES.filter(m => !LYRIC_MODES.includes(m)); settings.autoFav = false; autoBag = [];
   if (!LYRIC_MODES.includes(settings.mode)) pickMode(LYRIC_MODES[(Math.random()*LYRIC_MODES.length)|0]);
   setAuto(true); syncSettingsPanel(); save(); toast('Lyrics playlist on: Auto now rotates the 6 lyric modes', 2600);
 });
-$('#poolNone').addEventListener('click', () => { settings.autoSkip = MODES.slice(); autoBag = []; syncSettingsPanel(); save(); });
+// favourites playlist: Auto rotates your starred modes, and stays in step as you star or unstar more
+function favPlaylist(){ settings.autoSkip = MODES.filter(m => !settings.favorites.includes(m)); autoBag = []; if (typeof syncSettingsPanel === 'function') syncSettingsPanel(); }
+$('#poolFav').addEventListener('click', () => {
+  if (settings.favorites.length < 2){ toast('Star at least 2 modes in All modes first (the ☆ next to each one)', 3200); return; }
+  settings.autoFav = true; favPlaylist();
+  if (!settings.favorites.includes(settings.mode)) pickMode(settings.favorites[(Math.random()*settings.favorites.length)|0]);
+  setAuto(true); save(); toast('Favourites playlist on: Auto rotates your ' + settings.favorites.length + ' starred modes', 2600);
+});
+$('#poolNone').addEventListener('click', () => { settings.autoSkip = MODES.slice(); settings.autoFav = false; autoBag = []; syncSettingsPanel(); save(); });
 ctext.addEventListener('input', () => { settings.text = ctext.value.slice(0, 24); save(); });
 { const lo = $('#lyrOff'), lt = $('#lyrOffTxt'), say = () => { const v = settings.lyrOff; lt.textContent = (Math.abs(v) < 0.025 ? 'Right on the music' : 'Lyrics ' + Math.abs(v).toFixed(2) + ' s ' + (v > 0 ? 'early' : 'late')) + '. Slide right if they lag, left if they rush.'; };
   lo.value = settings.lyrOff; say(); lo.addEventListener('input', () => { settings.lyrOff = +lo.value; say(); save(); }); }
@@ -4020,7 +4029,8 @@ function syncSettingsPanel(){
   togBtns.forEach(b => { const on = !!settings[b.dataset.tog]; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? 'On' : 'Off'; });
   poolChips.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(!settings.autoSkip.includes(b.dataset.pool))));
   const on = MODES.length - settings.autoSkip.length;
-  $('#poolCount').textContent = on >= 2 ? on + ' of ' + MODES.length : 'using all';
+  $('#poolCount').textContent = settings.autoFav && on >= 2 ? '⭐ ' + on + ' favourites' : on >= 2 ? on + ' of ' + MODES.length : 'using all';
+  $('#poolFav').setAttribute('aria-pressed', String(settings.autoFav));
   if (document.activeElement !== ctext) ctext.value = settings.text;
 }
 

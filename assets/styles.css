@@ -139,6 +139,7 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
 .tog em{display:block;font-style:normal;color:var(--muted);font-size:12px;line-height:1.4;margin-top:2px}
 .togb{min-width:60px;justify-content:center;border:1px solid var(--line)}
 .mini{appearance:none;border:1px solid var(--line);background:transparent;color:var(--text);font:600 11.5px/1 var(--font-display);padding:6px 10px;border-radius:8px;cursor:pointer;letter-spacing:0;text-transform:none}
+.mini[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:transparent}
 .mini:hover{border-color:var(--muted)}
 .seg{display:flex;gap:3px;padding:4px;border:1px solid var(--line);border-radius:14px}
 .seg .btn{flex:1;justify-content:center;padding:9px 8px}
