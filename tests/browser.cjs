@@ -175,6 +175,9 @@ async function regressions(browser, url) {
     const clock = await page.evaluate(() => ({ sixty: testApp.sampleClock(1, 60), fast: testApp.sampleClock(60 / 144, 144) }));
     assert.ok(Math.abs(clock.sixty - clock.fast) < 1e-9);
     await page.emulateMedia({ reducedMotion: 'reduce' });
+    // Firefox and WebKit deliver the media-query change event a little later than Chromium: wait for it, then a couple of frames.
+    await page.waitForFunction(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     const flash = await page.evaluate(() => {
       testApp.F.drop = 1; testApp.settings.fx.drops = true; testApp.settings.fx.vhs = false;
       const ctx = document.querySelector('#stage').getContext('2d'); let fills = 0;
@@ -203,8 +206,8 @@ async function regressions(browser, url) {
         if (groups.includes('regressions')) await check(`${engine}: source ownership, lyrics, camera cleanup, timing and reduced motion`, () => regressions(browser, testUrl));
       } finally { await browser.close(); }
     }
-  } finally { server.close(); instrumented.close(); }
+  } finally { for (const s of [server, instrumented]) { s.closeAllConnections?.(); s.close(); } }
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(results, null, 2));
   console.log(JSON.stringify({ passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length }));
-  if (results.some(r => !r.passed)) process.exitCode = 1;
-})().catch(e => { console.error(e); process.exitCode = 1; });
+  process.exit(results.some(r => !r.passed) ? 1 : 0);   // exit even if a browser or socket is still hanging around
+})().catch(e => { console.error(e); process.exit(1); });
