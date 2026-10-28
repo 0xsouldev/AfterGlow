@@ -55,7 +55,7 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
-Use `npm run test:chromium` for a Chromium-only run. Screenshots and machine-readable results are saved in `test-results/` (ignored by Git). GitHub Actions runs the three browser engines and retains the results as downloadable artifacts.
+Use `npm run test:chromium` for a Chromium-only run. Screenshots and machine-readable results are saved in `test-results/` (ignored by Git). GitHub Actions runs the checks in Chromium (the engine behind Edge, Brave and Chrome) and retains the results as downloadable artifacts.
 
 The suite selects all 75 modes through the UI at desktop and mobile sizes, waits for transitions to settle, checks continuing animation and nonblank canvas output, and saves screenshots. It also covers search/favourites persistence, keyboard focus, responsive panels, local file playback/seeking, stale capture requests, lyric source isolation, camera cleanup, refresh-rate-independent vinyl motion, and reduced-motion flashes.
 
