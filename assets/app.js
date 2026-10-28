@@ -3354,8 +3354,11 @@ const KIN = { key: '', wi: -1, t: 0, flash: 0, rot: [], arm: true };
 function drawKinetic(){
   const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, cy = top + h*0.55, L = lyrNow(), now = performance.now();
   const key = L.i + '|' + L.cur;
-  if (key !== KIN.key){ KIN.key = key; KIN.wi = -1; KIN.rot = L.words.map(() => rnd(-0.09, 0.09)); }
-  if (L.wi !== KIN.wi){ KIN.wi = L.wi; KIN.t = now; }
+  if (key !== KIN.key){ KIN.key = key; KIN.wi = -1; KIN.t = 0; KIN.rot = L.words.map(() => rnd(-0.09, 0.09)); }
+  // words queue up: if the timing jumps ahead (fast rap), the skipped words still slam in one by one, quickly, until it catches up
+  const want = Math.min(L.wi, L.words.length - 1);
+  if (want > KIN.wi){ const behind = want - KIN.wi, gap = behind > 2 ? 55 : 70; if (now - KIN.t >= gap){ KIN.wi++; KIN.t = now; } }
+  else if (want < KIN.wi && want >= 0){ KIN.wi = want; KIN.t = now; }
   if (F.drop > 0.95 && KIN.arm){ KIN.arm = false; KIN.flash = 1; } else if (F.drop < 0.5) KIN.arm = true;
   fade(0.85);
   const bg = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, h)*0.7); bg.addColorStop(0, col(0.5, 0.12 + F.bass*0.2)); bg.addColorStop(1, col(0.5, 0)); g.fillStyle = bg; g.fillRect(0, top, W, h);
@@ -3363,7 +3366,7 @@ function drawKinetic(){
   const sx = reduceMotion ? 0 : (Math.random() - 0.5)*F.kickEnv*14, sy = reduceMotion ? 0 : (Math.random() - 0.5)*F.kickEnv*10;
   g.save(); g.translate(sx, sy); g.textAlign = 'center'; g.textBaseline = 'middle';
   if (KIN.wi >= 0){
-    const w = L.words[KIN.wi], t = clamp((now - KIN.t)/160, 0, 1), pop = 1 + (1 - t)*(1 - t)*0.7;   // the new word lands big and settles
+    const w = L.words[KIN.wi], t = clamp((now - KIN.t)/120, 0, 1), pop = 1 + (1 - t)*(1 - t)*0.7;   // the new word lands big and settles
     let fs = Math.min(h*0.26, W*0.85/Math.max(2, w.length*0.62)); g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D;
     const mw = g.measureText(w).width; if (mw > W*0.88){ fs *= W*0.88/mw; g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D; }
     g.save(); g.translate(cx, cy); g.rotate(KIN.rot[KIN.wi] || 0); g.scale(pop, pop);
@@ -3371,6 +3374,7 @@ function drawKinetic(){
     let y = cy - fs*0.75;   // words already sung, stacked above, getting smaller and dimmer
     for (let j = KIN.wi - 1, n = 0; j >= 0 && n < 4; j--, n++){
       const f2 = fs*(0.42 - n*0.06); g.font = '800 ' + Math.round(f2) + 'px ' + FONT_D; y -= f2*1.05;
+      if (y - f2*0.6 < top) break;   // keep the pile below the top bar
       g.save(); g.translate(cx, y); g.rotate(KIN.rot[j] || 0); g.fillStyle = col(0.3 + n*0.12, 0.85 - n*0.18); g.fillText(L.words[j], 0, 0); g.restore();
     }
   }
