@@ -21,7 +21,7 @@ function wav() {
 }
 async function check(name, fn) {
   try { const details = await fn(); results.push({ name, passed: true, details }); console.log('PASS', name); }
-  catch (e) { results.push({ name, passed: false, error: e.stack }); console.error('FAIL', name, e.message); }
+  catch (e) { results.push({ name, passed: false, error: e.stack }); console.error('FAIL', name, e.message); if (process.env.GITHUB_ACTIONS) console.log(`::error title=${name.replace(/[:,\n]/g, ' ')}::${String(e.stack || e.message).split('\n').slice(0, 4).join(' | ').replace(/%/g, '%25')}`); }
 }
 async function contextFor(browser, url, options = {}) {
   const context = await browser.newContext(options);
