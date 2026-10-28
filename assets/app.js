@@ -3349,7 +3349,7 @@ function lyrNow(){
 }
 
 // Kinetic Type: lyric-video style. Each line is cut into chunks of 2-4 words (breaking at commas and pauses). A chunk
-// slams in big, then its words light up as they're sung, so a slightly-off word timing never loses a word. Earlier
+// slams in big, fully lit, when the singing reaches it, so a slightly-off word timing never loses a word. Earlier
 // chunks of the line stack up smaller above. The kick shakes the whole thing and the drop flashes the screen
 const KIN = { key: '', chunks: [], ci: -1, t: 0, flash: 0, rot: [], arm: true };
 function kinChunks(words){   // [[firstWord, lastWord], ...]
@@ -3380,16 +3380,10 @@ function drawKinetic(){
     const t = clamp((now - KIN.t)/150, 0, 1), pop = 1 + (1 - t)*(1 - t)*0.55;   // the chunk lands big and settles
     let fs = Math.min(h*0.22, W*0.9/Math.max(3, txt.length*0.6)); g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D;
     let tw = g.measureText(txt).width; if (tw > W*0.9){ fs *= W*0.9/tw; g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D; tw = g.measureText(txt).width; }
-    const sp = g.measureText(' ').width;
-    g.save(); g.translate(cx, cy); g.rotate(KIN.rot[KIN.ci] || 0); g.scale(pop, pop); g.textAlign = 'left';
+        g.save(); g.translate(cx, cy); g.rotate(KIN.rot[KIN.ci] || 0); g.scale(pop, pop); g.textAlign = 'left';
     let x = -tw/2;
-    for (let q = 0; q < ws.length; q++){   // sung words bright, the one being sung glows, the rest wait dimmed
-      const wi = a + q, sung = wi < L.wi, curW = wi === L.wi, ww = g.measureText(ws[q]).width;
-      if (curW){ g.shadowColor = col(0.85, 0.9); g.shadowBlur = 18 + F.kickEnv*16; }
-      g.fillStyle = col(0.85, sung || curW ? 1 : 0.22); g.fillText(ws[q], x, 0); g.shadowBlur = 0;
-      if (curW){ g.fillStyle = col(0.9, 0.9); g.fillRect(x, fs*0.55, ww, Math.max(3, fs*0.06)); }   // a bar under the word being sung
-      x += ww + sp;
-    }
+    g.shadowColor = col(0.85, 0.8); g.shadowBlur = 14*(1 - t) + F.kickEnv*14;   // the whole chunk lands lit, glowing on the kick
+    g.fillStyle = col(0.85, 1); g.fillText(txt, -tw/2, 0); g.shadowBlur = 0;
     g.restore();
     g.textAlign = 'center'; let y = cy - fs*0.8;   // this line's earlier chunks, stacked above, getting smaller and dimmer
     for (let c = KIN.ci - 1, n = 0; c >= 0 && n < 3; c--, n++){
