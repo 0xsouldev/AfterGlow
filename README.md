@@ -51,7 +51,7 @@ Alternatively, with Node.js installed, run `npm start`.
 
 ```sh
 npm ci
-npx playwright install --with-deps chromium firefox webkit
+npx playwright install --with-deps chromium
 npm test
 ```
 

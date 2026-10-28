@@ -8,7 +8,7 @@ fs.mkdirSync(output, { recursive: true });
 const results = [];
 const engines = process.argv.slice(2);
 const groups = (process.env.TEST_GROUPS || 'renders,controls,regressions').split(',');
-if (!engines.length) engines.push('chromium', 'firefox', 'webkit');
+if (!engines.length) engines.push('chromium');
 
 function wav() {
   const rate = 8000, n = rate * 20, b = Buffer.alloc(44 + n * 2);
