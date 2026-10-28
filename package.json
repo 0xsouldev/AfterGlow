@@ -1,0 +1,12 @@
+{
+  "name": "afterglow-visualizer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node tests/server.cjs",
+    "test": "node tests/browser.cjs",
+    "test:chromium": "node tests/browser.cjs chromium",
+    "check": "node --check assets/app.js && node --check tests/browser.cjs"
+  },
+  "devDependencies": { "playwright": "1.56.1" }
+}
