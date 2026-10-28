@@ -3348,34 +3348,56 @@ function lyrNow(){
   return { lines: new Array(LYF.i + 2).fill(txt), i: LYF.i, cur: txt, words, prog, wi: Math.min(words.length - 1, Math.floor(prog*words.length)), next: txt, lyrics: false };
 }
 
-// Kinetic Type: lyric-video style. Each word of the line being sung slams in huge, one at a time; the words already
-// sung stack up smaller above it. The kick shakes the whole thing and the drop flashes the screen
-const KIN = { key: '', wi: -1, t: 0, flash: 0, rot: [], arm: true };
+// Kinetic Type: lyric-video style. Each line is cut into chunks of 2-4 words (breaking at commas and pauses). A chunk
+// slams in big, then its words light up as they're sung, so a slightly-off word timing never loses a word. Earlier
+// chunks of the line stack up smaller above. The kick shakes the whole thing and the drop flashes the screen
+const KIN = { key: '', chunks: [], ci: -1, t: 0, flash: 0, rot: [], arm: true };
+function kinChunks(words){   // [[firstWord, lastWord], ...]
+  const out = []; let a = 0, chars = 0;
+  for (let q = 0; q < words.length; q++){
+    chars += words[q].length + 1; const n = q - a + 1, pause = /[,.;:!?…)\]]$/.test(words[q]) || /^[-–—]$/.test(words[q + 1] || '');
+    if (q === words.length - 1 || (pause && n >= 1) || n >= 4 || (n >= 2 && chars + (words[q + 1] || '').length > 20)){ out.push([a, q]); a = q + 1; chars = 0; }
+  }
+  for (let c = out.length - 1; c > 0; c--){   // a lone short word gets merged into its neighbour instead of slamming alone
+    const [a1, b1] = out[c]; if (a1 === b1 && words[a1].length <= 3 && !/[,.;:!?]$/.test(words[out[c - 1][1]])){ out[c - 1][1] = b1; out.splice(c, 1); }
+  }
+  return out;
+}
 function drawKinetic(){
-  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, cy = top + h*0.55, L = lyrNow(), now = performance.now();
+  const k = p3tick(), top = area.top, h = area.bottom - top, cx = W/2, cy = top + h*0.58, L = lyrNow(), now = performance.now();
   const key = L.i + '|' + L.cur;
-  if (key !== KIN.key){ KIN.key = key; KIN.wi = -1; KIN.t = 0; KIN.rot = L.words.map(() => rnd(-0.09, 0.09)); }
-  // words queue up: if the timing jumps ahead (fast rap), the skipped words still slam in one by one, quickly, until it catches up
-  const want = Math.min(L.wi, L.words.length - 1);
-  if (want > KIN.wi){ const behind = want - KIN.wi, gap = behind > 2 ? 55 : 70; if (now - KIN.t >= gap){ KIN.wi++; KIN.t = now; } }
-  else if (want < KIN.wi && want >= 0){ KIN.wi = want; KIN.t = now; }
+  if (key !== KIN.key){ KIN.key = key; KIN.chunks = kinChunks(L.words); KIN.ci = -1; KIN.rot = KIN.chunks.map(() => rnd(-0.06, 0.06)); }
+  const ci = L.wi < 0 ? -1 : KIN.chunks.findIndex(c => L.wi >= c[0] && L.wi <= c[1]);
+  if (ci !== KIN.ci){ KIN.ci = ci; KIN.t = now; }
   if (F.drop > 0.95 && KIN.arm){ KIN.arm = false; KIN.flash = 1; } else if (F.drop < 0.5) KIN.arm = true;
   fade(0.85);
   const bg = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, h)*0.7); bg.addColorStop(0, col(0.5, 0.12 + F.bass*0.2)); bg.addColorStop(1, col(0.5, 0)); g.fillStyle = bg; g.fillRect(0, top, W, h);
   if (KIN.flash > 0.02){ g.fillStyle = col(0.9, KIN.flash*0.5); g.fillRect(0, top, W, h); KIN.flash *= Math.pow(0.9, k); }
   const sx = reduceMotion ? 0 : (Math.random() - 0.5)*F.kickEnv*14, sy = reduceMotion ? 0 : (Math.random() - 0.5)*F.kickEnv*10;
-  g.save(); g.translate(sx, sy); g.textAlign = 'center'; g.textBaseline = 'middle';
-  if (KIN.wi >= 0){
-    const w = L.words[KIN.wi], t = clamp((now - KIN.t)/120, 0, 1), pop = 1 + (1 - t)*(1 - t)*0.7;   // the new word lands big and settles
-    let fs = Math.min(h*0.26, W*0.85/Math.max(2, w.length*0.62)); g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D;
-    const mw = g.measureText(w).width; if (mw > W*0.88){ fs *= W*0.88/mw; g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D; }
-    g.save(); g.translate(cx, cy); g.rotate(KIN.rot[KIN.wi] || 0); g.scale(pop, pop);
-    g.shadowColor = col(0.85, 0.8); g.shadowBlur = 30*(1 - t) + F.kickEnv*20; g.fillStyle = col(0.85, 1); g.fillText(w, 0, 0); g.restore();
-    let y = cy - fs*0.75;   // words already sung, stacked above, getting smaller and dimmer
-    for (let j = KIN.wi - 1, n = 0; j >= 0 && n < 4; j--, n++){
-      const f2 = fs*(0.42 - n*0.06); g.font = '800 ' + Math.round(f2) + 'px ' + FONT_D; y -= f2*1.05;
-      if (y - f2*0.6 < top) break;   // keep the pile below the top bar
-      g.save(); g.translate(cx, y); g.rotate(KIN.rot[j] || 0); g.fillStyle = col(0.3 + n*0.12, 0.85 - n*0.18); g.fillText(L.words[j], 0, 0); g.restore();
+  g.save(); g.translate(sx, sy); g.textBaseline = 'middle';
+  if (KIN.ci >= 0){
+    const [a, b] = KIN.chunks[KIN.ci], ws = L.words.slice(a, b + 1), txt = ws.join(' ');
+    const t = clamp((now - KIN.t)/150, 0, 1), pop = 1 + (1 - t)*(1 - t)*0.55;   // the chunk lands big and settles
+    let fs = Math.min(h*0.22, W*0.9/Math.max(3, txt.length*0.6)); g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D;
+    let tw = g.measureText(txt).width; if (tw > W*0.9){ fs *= W*0.9/tw; g.font = '900 ' + Math.round(fs) + 'px ' + FONT_D; tw = g.measureText(txt).width; }
+    const sp = g.measureText(' ').width;
+    g.save(); g.translate(cx, cy); g.rotate(KIN.rot[KIN.ci] || 0); g.scale(pop, pop); g.textAlign = 'left';
+    let x = -tw/2;
+    for (let q = 0; q < ws.length; q++){   // sung words bright, the one being sung glows, the rest wait dimmed
+      const wi = a + q, sung = wi < L.wi, curW = wi === L.wi, ww = g.measureText(ws[q]).width;
+      if (curW){ g.shadowColor = col(0.85, 0.9); g.shadowBlur = 18 + F.kickEnv*16; }
+      g.fillStyle = col(0.85, sung || curW ? 1 : 0.22); g.fillText(ws[q], x, 0); g.shadowBlur = 0;
+      if (curW){ g.fillStyle = col(0.9, 0.9); g.fillRect(x, fs*0.55, ww, Math.max(3, fs*0.06)); }   // a bar under the word being sung
+      x += ww + sp;
+    }
+    g.restore();
+    g.textAlign = 'center'; let y = cy - fs*0.8;   // this line's earlier chunks, stacked above, getting smaller and dimmer
+    for (let c = KIN.ci - 1, n = 0; c >= 0 && n < 3; c--, n++){
+      const t2 = L.words.slice(KIN.chunks[c][0], KIN.chunks[c][1] + 1).join(' ');
+      let f2 = fs*(0.45 - n*0.08); g.font = '800 ' + Math.round(f2) + 'px ' + FONT_D;
+      const w2 = g.measureText(t2).width; if (w2 > W*0.8){ f2 *= W*0.8/w2; g.font = '800 ' + Math.round(f2) + 'px ' + FONT_D; }
+      y -= f2*1.15; if (y - f2*0.6 < top) break;   // keep the pile below the top bar
+      g.save(); g.translate(cx, y); g.rotate(KIN.rot[c] || 0); g.fillStyle = col(0.3 + n*0.15, 0.85 - n*0.22); g.fillText(t2, 0, 0); g.restore();
     }
   }
   g.restore();
