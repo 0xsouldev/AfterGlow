@@ -1,6 +1,6 @@
 # Afterglow
 
-A browser music visualizer with **75 modes**, 11 palettes, beat-reactive effects, and synced lyric displays.
+A browser music visualizer with **65 modes**, 11 palettes, beat-reactive effects, and synced lyric displays.
 
 **[Open Afterglow](https://0xsouldev.github.io/AfterGlow/)**
 
@@ -57,7 +57,7 @@ npm test
 
 Use `npm run test:chromium` for a Chromium-only run. Screenshots and machine-readable results are saved in `test-results/` (ignored by Git). GitHub Actions runs the checks in Chromium (the engine behind Edge, Brave and Chrome) and retains the results as downloadable artifacts.
 
-The suite selects all 75 modes through the UI at desktop and mobile sizes, waits for transitions to settle, checks continuing animation and nonblank canvas output, and saves screenshots. It also covers search/favourites persistence, keyboard focus, responsive panels, local file playback/seeking, stale capture requests, lyric source isolation, camera cleanup, refresh-rate-independent vinyl motion, and reduced-motion flashes.
+The suite selects all 65 modes through the UI at desktop and mobile sizes, waits for transitions to settle, checks continuing animation and nonblank canvas output, and saves screenshots. It also covers search/favourites persistence, keyboard focus, responsive panels, local file playback/seeking, stale capture requests, lyric source isolation, camera cleanup, refresh-rate-independent vinyl motion, and reduced-motion flashes.
 
 Capture regression checks use synthetic MediaStreams, and lyric requests use fixtures. Real Apple Music sessions, physical microphones/cameras, OS sharing pickers, and performance on physical phones require manual device checks.
 
@@ -79,4 +79,4 @@ npm run test:pr2
 
 The first covers synthetic tempo, missing beats, silence, breakdown drops, PCM analysis at 44.1/48 kHz, lyric matching and timing. The second runs the real worklet/worker in Chromium and checks seek resets, version selection, persisted lyric preferences and mobile settings. `npm start` serves the new audio assets; `tests/server.cjs` remains the original isolated browser-fixture server.
 
-`test:pr2` checks title extras and version rejection, restored karaoke timing, an entirely inline build (75 modes and analyser fallback), and 40-second synthetic audio fixtures for breakdown returns, quiet-intro entrances and a steady loop. It also verifies the shared drop cooldown. All browser tests use Chromium.
+`test:pr2` checks title extras and version rejection, restored karaoke timing, an entirely inline build (65 modes and analyser fallback), and 40-second synthetic audio fixtures for breakdown returns, quiet-intro entrances and a steady loop. It also verifies the shared drop cooldown. All browser tests use Chromium.

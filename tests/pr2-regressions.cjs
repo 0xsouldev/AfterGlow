@@ -44,7 +44,7 @@ function wav(kind){
    if(!inline && u===url+'/assets/app.js')return route.fulfill({contentType:'text/javascript',body:instrumented});
    if(u.startsWith(url) && (!inline || !u.includes('/assets/')))return route.continue();return route.abort();
   });
-  await page.goto(url+'/#debug');assert.equal(await page.locator('[data-mode]').count(),75);
+  await page.goto(url+'/#debug');assert.equal(await page.locator('[data-mode]').count(),65);
   await page.evaluate(()=>{pr2.settings.quality='low';pr2.settings.lyrics=false;});
   await page.locator('#fileInput').setInputFiles(wav(kind));
   await page.waitForFunction(()=>window.pr2.getAudio()?.currentTime>39.5,null,{timeout:55000});

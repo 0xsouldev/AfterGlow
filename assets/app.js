@@ -21,7 +21,7 @@ const PALETTES = {
   gold:    { name:'Gold',    bg:'#0a0805', stops:['#7a4b0c','#c8891b','#ffd76a','#fff8e1'] },
 };
 const PAL_KEYS = Object.keys(PALETTES);
-const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
+const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', scope:'Scope', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', domino:'Domino Run', slots:'Slot Machine', neon:'Neon Sign', mosh:'Moshpit', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 const MODES = Object.keys(MODE_NAMES);
 
 const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, autoEnergy:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
@@ -595,30 +595,6 @@ function drawRidge(){
 
 const peaks = new Float32Array(128), hold = new Float32Array(128);
 const TICKS = [50,100,200,500,1000,2000,5000,10000];
-function drawSpectrum(){
-  fade(0.45);
-  g.globalCompositeOperation = 'source-over';
-  const h = area.bottom - area.top, left = Math.max(28, W*0.06), right = W - left;
-  const maxH = h*0.6, base = area.top + h*0.06 + maxH, n = clamp(Math.round((right-left)/16), 28, 96);
-  const bw = (right-left)/n, gap = Math.max(1.5, bw*0.28), w = bw - gap;
-  for (let i=0;i<n;i++){
-    const v = bandMax(i/n, (i+1)/n);
-    if (v >= peaks[i]) { peaks[i] = v; hold[i] = 20; } else if (hold[i] > 0) hold[i]--; else peaks[i] = Math.max(0, peaks[i] - 0.011);
-    const bh = Math.max(2, v*maxH), x = left + i*bw + gap/2, c = 0.05 + 0.85*i/n;
-    g.fillStyle = col(c, 0.95); g.fillRect(x, base-bh, w, bh);
-    g.fillStyle = col(c, 0.13); g.fillRect(x, base+3, w, bh*0.26);
-    g.fillStyle = col(Math.min(1, c+0.25), 1); g.fillRect(x, base - Math.max(2, peaks[i]*maxH) - 5, w, 2.5);
-  }
-  // log-frequency axis
-  const ty = base + maxH*0.26 + 14;
-  g.font = '500 10px "JetBrains Mono", ui-monospace, monospace'; g.textAlign = 'center'; g.textBaseline = 'top';
-  for (const f of TICKS){
-    const x = left + (right-left)*fx(f);
-    g.fillStyle = 'rgba(200,198,220,0.35)'; g.fillRect(x-0.5, ty-8, 1, 5);
-    g.fillStyle = 'rgba(200,198,220,0.62)'; g.fillText(f >= 1000 ? (f/1000)+'k' : String(f), x, ty);
-  }
-  g.textAlign = 'right'; g.fillStyle = 'rgba(200,198,220,0.4)'; g.fillText('Hz', right, ty);
-}
 
 function drawScope(){
   fade(0.15);
@@ -648,30 +624,6 @@ function drawScope(){
 /* ---------- more modes ---------- */
 let T = 0;
 const rnd = (a, b) => a + Math.random() * (b - a);
-
-// Warp: rings rush out of a tunnel, bent by the spectrum
-let warpZ = 0, warpRot = 0;
-function drawWarp(){
-  fade(0.32);
-  const h = area.bottom - area.top, cx = W/2, cy = area.top + h/2, R = Math.hypot(W, h)/2;
-  if (!reduceMotion) { warpZ = (warpZ + 0.006 + F.bass*0.03 + F.beat*0.02) % 1; warpRot += (0.003 + F.high*0.01)*frameScale; }
-  g.globalCompositeOperation = 'lighter'; g.lineJoin = 'round';
-  const rings = 16, N = 96;
-  for (let k = rings - 1; k >= 0; k--){
-    const d = (k + warpZ) / rings, p = d*d*d, base = 6 + p*R*1.15;
-    g.beginPath();
-    for (let i = 0; i <= N; i++){
-      const f = (i % N) / N, m = f < 0.5 ? f*2 : (1 - f)*2, a = f*Math.PI*2 + warpRot*(1 + k*0.05);
-      const r = base * (1 + band(m*0.85) * 0.45);
-      i ? g.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r) : g.moveTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
-    }
-    g.closePath();
-    g.strokeStyle = col(0.15 + 0.8*(1 - d), Math.min(1, 0.15 + p*1.4)); g.lineWidth = 0.6 + p*4; g.stroke();
-  }
-  const cr = R*0.18, core = g.createRadialGradient(cx, cy, 0, cx, cy, cr);
-  core.addColorStop(0, col(0.95, 0.25 + F.bass*0.5)); core.addColorStop(1, col(0.5, 0));
-  g.fillStyle = core; g.fillRect(cx - cr, cy - cr, cr*2, cr*2);
-}
 
 // Galaxy: a spiral of stars that swells with the bass
 const GSTARS = [];
@@ -749,21 +701,6 @@ function drawKaleido(){
     g.restore();
   }
   g.restore();
-}
-
-// Lava: glowing blobs drifting around, each one tied to a slice of the spectrum
-function drawLava(){
-  fade(0.3);
-  const h = area.bottom - area.top, cx = W/2, cy = area.top + h/2, m = Math.min(W, h), n = 8;
-  g.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < n; i++){
-    const t = reduceMotion ? 0 : T;
-    const x = cx + Math.sin(t*(0.21 + i*0.037) + i*1.7)*W*0.34, y = cy + Math.cos(t*(0.17 + i*0.029) + i*2.3)*h*0.3;
-    const v = bandMax(i/n*0.85, (i + 1)/n*0.85), r = m*(0.07 + v*0.2)*(1 + F.beat*0.12), c = i/(n - 1);
-    const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    gr.addColorStop(0, col(c, 0.36)); gr.addColorStop(0.45, col(c, 0.16)); gr.addColorStop(1, col(c, 0));
-    g.fillStyle = gr; g.fillRect(x - r, y - r, r*2, r*2);
-  }
 }
 
 // Hyperspace: stars streak past faster when the bass hits
@@ -907,23 +844,6 @@ function drawRain(){
   }
 }
 
-// Sound Sphere: a ball of points that bulges with each frequency
-const SPH = []; for (let i = 0, n = 720; i < n; i++){ const y = 1 - (i/(n - 1))*2, r = Math.sqrt(1 - y*y), th = i*2.399963; SPH.push([Math.cos(th)*r, y, Math.sin(th)*r]); }
-let sphRot = 0;
-function drawSphere(){
-  fade(0.3);
-  const h = area.bottom - area.top, cx = W/2, cy = area.top + h/2, R = Math.min(W, h)*0.27*(1 + F.bass*0.08 + F.beat*0.03);
-  if (!reduceMotion) sphRot += (0.004 + F.mid*0.01)*frameScale;
-  const cs = Math.cos(sphRot), sn = Math.sin(sphRot), ct = Math.cos(0.4), st = Math.sin(0.4);
-  g.globalCompositeOperation = 'lighter';
-  for (const p of SPH){
-    const x = p[0]*cs - p[2]*sn, z0 = p[0]*sn + p[2]*cs, y = p[1]*ct - z0*st, z = p[1]*st + z0*ct;
-    const v = band(Math.abs(p[1])*0.85), rr = R*(1 + v*0.55), per = 1.8/(2.6 - z), sz = (1.1 + v*3)*per;
-    g.fillStyle = col(0.2 + v*0.75, (0.18 + (z + 1)*0.3)*(0.45 + v));
-    g.fillRect(cx + x*rr*per - sz/2, cy + y*rr*per - sz/2, sz, sz);
-  }
-}
-
 
 /* ---------- abstract pack ---------- */
 function rr(x, y, w, h, r){ g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
@@ -1034,32 +954,6 @@ function drawInk(){
     g.beginPath(); for (let i = 0; i < seg.length; i += 4){ g.moveTo(seg[i], seg[i + 1]); g.lineTo(seg[i + 2], seg[i + 3]); }
     g.strokeStyle = col((b + 0.5)/B, 0.22 + F.mid*0.15); g.stroke();
   });
-}
-
-// Ripples: every beat drops a stone in the pool
-const RIP = [];
-function drawRipples(){
-  const top = area.top, h = area.bottom - top;
-  g.globalCompositeOperation = 'source-over'; g.fillStyle = BGS; g.fillRect(0, 0, W, H);
-  const water = g.createLinearGradient(0, top, 0, area.bottom); water.addColorStop(0, col(0.25, 0.1)); water.addColorStop(1, col(0.1, 0.05));
-  g.fillStyle = water; g.fillRect(0, 0, W, H);
-  if (F.beatNow) RIP.push({ x: rnd(W*0.15, W*0.85), y: top + rnd(h*0.15, h*0.85), r: 0, life: 1, c: Math.random() });
-  if (F.hatNow) RIP.push({ x: rnd(0, W), y: top + rnd(0, h), r: 0, life: 0.6, c: Math.random(), small: true });
-  if (F.snareNow && !F.beatNow) RIP.push({ x: rnd(W*0.1, W*0.9), y: top + rnd(h*0.1, h*0.9), r: 0, life: 0.75, c: Math.random() });
-  if (F.drop > 0.95) RIP.push({ x: W/2, y: top + h/2, r: 0, life: 1.4, c: 0.9, big: true });
-  g.globalCompositeOperation = 'lighter';
-  const speed = reduceMotion ? 1 : 2.2 + F.bass*4;
-  for (let i = RIP.length - 1; i >= 0; i--){
-    const R = RIP[i]; R.r += speed*(R.big ? 1.6 : R.small ? 0.7 : 1); R.life -= R.small ? 0.02 : 0.009;
-    if (R.life <= 0){ RIP.splice(i, 1); continue; }
-    for (let k = 0; k < (R.small ? 1 : 3); k++){
-      const r = R.r - k*18; if (r <= 0) continue;
-      g.strokeStyle = col(R.c, Math.min(1, R.life)*(0.8 - k*0.2)); g.lineWidth = (R.big ? 4 : 2.5) - k*0.6;
-      g.beginPath(); g.ellipse(R.x, R.y, r, r*0.55, 0, 0, Math.PI*2); g.stroke();
-    }
-  }
-  if (RIP.length > 60) RIP.splice(0, RIP.length - 60);
-  for (let i = 0; i < 40; i++){ const x = hash1(i, 1)*W + Math.sin(T*0.7 + i)*20, y = top + hash1(i, 2)*h + Math.cos(T*0.6 + i)*12; g.fillStyle = col(0.8, 0.08 + 0.15*Math.abs(Math.sin(T*2 + i))); g.fillRect(x, y, 2, 2); }
 }
 
 // Classic Bars: chunky smoothed bars with a logo block and the track name underneath
@@ -2100,40 +1994,6 @@ function drawLED(){
   g.globalCompositeOperation = 'source-over';
 }
 
-// Bubbles: soap bubbles rise faster with the bass; the beat pops a few and the drop pops the lot
-const BUB = []; let bubArm = true;
-function drawBubbles(){
-  const k = p3tick();
-  fade(1);
-  const top = area.top, h = area.bottom - top, scale = W < 600 ? 0.7 : 1;
-  const bg = g.createLinearGradient(0, top, 0, area.bottom); bg.addColorStop(0, 'rgba(0,0,0,0)'); bg.addColorStop(1, col(0.3, 0.08));
-  g.fillStyle = bg; g.fillRect(0, 0, W, H);
-  if (!reduceMotion && BUB.length < 160 && Math.random() < (0.12 + (F.bass + F.mid)*0.45)*k){ const f = Math.random(), v = band(f*0.8); BUB.push({ x: rnd(0, W), y: area.bottom + 40, r: (8 + v*38 + Math.random()*10)*scale, f, ph: Math.random()*6.28, vy: rnd(0.6, 1.3), pop: 0 }); }
-  const popOne = () => { const live = BUB.filter(b => !b.pop && b.y < area.bottom - h*0.2); if (live.length) live[(Math.random()*live.length)|0].pop = 0.001; };
-  if (F.beatNow && !reduceMotion){ popOne(); if (F.bass > 0.5) popOne(); }
-  if (F.drop > 0.95 && bubArm){ bubArm = false; for (const b of BUB) if (!b.pop) b.pop = 0.001; } else if (F.drop < 0.5) bubArm = true;
-  g.globalCompositeOperation = 'lighter';
-  for (let i = BUB.length - 1; i >= 0; i--){
-    const b = BUB[i];
-    if (b.pop){
-      b.pop += 0.07*k; if (b.pop >= 1){ BUB.splice(i, 1); continue; }
-      const rr0 = b.r*(1 + b.pop*0.8), a = 1 - b.pop;
-      g.strokeStyle = col(b.f, a*0.7); g.lineWidth = 2; g.beginPath(); g.arc(b.x, b.y, rr0, 0, Math.PI*2); g.stroke();
-      g.fillStyle = col(b.f, a); for (let q = 0; q < 8; q++){ const an = q/8*Math.PI*2 + b.ph, d = rr0*(1 + b.pop*0.9); g.fillRect(b.x + Math.cos(an)*d - 1.5, b.y + Math.sin(an)*d - 1.5, 3, 3); }
-      continue;
-    }
-    b.y -= b.vy*(0.6 + b.r/(40*scale))*(1 + F.bass*1.5)*k; b.x += Math.sin(T*1.5 + b.ph)*0.4*k;
-    if (b.y < top - b.r*2){ BUB.splice(i, 1); continue; }
-    const r = b.r*(1 + band(b.f*0.8)*0.15), x = b.x, y = b.y;
-    const gr = g.createRadialGradient(x - r*0.3, y - r*0.35, r*0.1, x, y, r);
-    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.72, col(b.f, 0.06)); gr.addColorStop(0.94, col(b.f, 0.42)); gr.addColorStop(1, col(b.f, 0));
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI*2); g.fill();
-    g.strokeStyle = col(pingpong(b.f + 0.35), 0.35); g.lineWidth = 1; g.beginPath(); g.arc(x, y, r*0.97, Math.PI*0.1, Math.PI*0.9); g.stroke();
-    g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = Math.max(1, r*0.07); g.beginPath(); g.arc(x - r*0.1, y - r*0.1, r*0.62, Math.PI*1.08, Math.PI*1.42); g.stroke();
-  }
-  g.globalCompositeOperation = 'source-over';
-}
-
 // Jellyfish: glowing jellies drift up through a dark sea. Every kick squeezes their bells and pushes them upward,
 // the mids sway the tentacles, the hi-hats light up the plankton and the drop makes them all flash
 const JELLY = [], PLANK = []; let jellyArm = true;
@@ -2501,42 +2361,6 @@ function drawInvaders(){
   g.globalCompositeOperation = 'source-over';
 }
 
-// Snake: the classic game playing itself in time with the song: it moves on 8th notes, chases food, takes a
-// sudden turn on the boom and grows every time it eats. The drop rains food on the board
-const SNK = { C: 0, R: 0, body: null, dir: [1, 0], food: [], acc: 0, kick: false, glow: 0, arm: true };
-function snkFree(){ for (let t = 0; t < 50; t++){ const p = [(Math.random()*SNK.C)|0, (Math.random()*SNK.R)|0]; if (!SNK.body.some(b => b[0] === p[0] && b[1] === p[1])) return p; } return [0, 0]; }
-function drawSnake(){
-  const k = p3tick(), top = area.top, h = area.bottom - top, C = W < 600 ? 16 : 28, R = Math.round(C*0.56);
-  const cs = Math.floor(Math.min(W*0.9/C, h*0.86/R)), ox = (W - C*cs)/2, oy = top + (h - R*cs)/2;
-  if (!SNK.body || SNK.C !== C){ SNK.C = C; SNK.R = R; SNK.body = [[5, R >> 1], [4, R >> 1], [3, R >> 1], [2, R >> 1]]; SNK.dir = [1, 0]; SNK.food = [snkFree(), snkFree(), snkFree()]; }
-  if (F.kickNow) SNK.kick = true;
-  if (F.drop > 0.95 && SNK.arm){ SNK.arm = false; for (let i = 0; i < 6; i++) SNK.food.push(snkFree()); } else if (F.drop < 0.5) SNK.arm = true;
-  SNK.acc += k*16.7; const step = bpmMs()/2;
-  while (SNK.acc >= step && !reduceMotion){
-    SNK.acc -= step;
-    const hd = SNK.body[0], wrap = (x, y) => [(x + C) % C, (y + R) % R], hit = (p) => SNK.body.some((b, i) => i < SNK.body.length - 1 && b[0] === p[0] && b[1] === p[1]);
-    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(d => !(d[0] === -SNK.dir[0] && d[1] === -SNK.dir[1]) && !hit(wrap(hd[0] + d[0], hd[1] + d[1])));
-    if (dirs.length){
-      if (SNK.kick && Math.random() < 0.7) SNK.dir = dirs[(Math.random()*dirs.length)|0];
-      else { let best = null, bd = 1e9; const fd = SNK.food[0]; for (const d of dirs){ const n = wrap(hd[0] + d[0], hd[1] + d[1]); let m = 1e9; for (const f of SNK.food) m = Math.min(m, Math.abs(f[0] - n[0]) + Math.abs(f[1] - n[1])); if (m < bd){ bd = m; best = d; } } SNK.dir = best || dirs[0]; }
-    }
-    SNK.kick = false;
-    const nh = wrap(hd[0] + SNK.dir[0], hd[1] + SNK.dir[1]);
-    if (hit(nh)){ SNK.body = SNK.body.slice(0, 4); SNK.glow = 1; continue; }   // bit itself: shrink back down
-    SNK.body.unshift(nh);
-    const fi = SNK.food.findIndex(f => f[0] === nh[0] && f[1] === nh[1]);
-    if (fi >= 0){ SNK.food.splice(fi, 1); if (SNK.food.length < 3) SNK.food.push(snkFree()); SNK.glow = 1; if (SNK.body.length > C*R*0.3) SNK.body.length = 4; }
-    else SNK.body.pop();
-  }
-  fade(0.6);
-  g.fillStyle = 'rgba(255,255,255,0.05)'; for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) g.fillRect(ox + x*cs + cs/2 - 1, oy + y*cs + cs/2 - 1, 2, 2);
-  g.strokeStyle = col(0.5, 0.25); g.lineWidth = 1.5; rr(ox - 4, oy - 4, C*cs + 8, R*cs + 8, 8); g.stroke();
-  for (const f of SNK.food){ const r = cs*(0.28 + F.kickEnv*0.12); g.fillStyle = col(0.9, 0.9); g.beginPath(); g.arc(ox + (f[0] + 0.5)*cs, oy + (f[1] + 0.5)*cs, r, 0, Math.PI*2); g.fill(); }
-  const n = SNK.body.length;
-  for (let i = n - 1; i >= 0; i--){ const b = SNK.body[i], pad = i ? cs*0.12 : cs*0.04; g.fillStyle = col(0.05 + i/n*0.6, Math.min(1, (i ? 0.85 : 1) + SNK.glow*0.2)); rr(ox + b[0]*cs + pad, oy + b[1]*cs + pad, cs - pad*2, cs - pad*2, cs*0.25); g.fill(); }
-  SNK.glow *= Math.pow(0.9, k);
-}
-
 // Domino Run: a winding line of dominoes; one tips over on every beat. When they're all down they stand back up,
 // and the drop knocks the rest over in one fast chain
 const DOM = { n: 0, a: null, down: null, idx: 0, casc: false, ct: 0, arm: true };
@@ -2560,41 +2384,6 @@ function drawDomino(){
     g.fillStyle = 'rgba(0,0,0,0.55)'; const pip = (px, py) => { g.beginPath(); g.arc(-dw/2 + px*dw*0.22, py, dw*0.09, 0, Math.PI*2); g.fill(); };
     pip(0, -dh*0.75); pip(-1, -dh*0.25); pip(1, -dh*0.25);
     g.restore();
-  }
-}
-
-// Shattered Glass: every boom cracks the screen at a new spot, the drop smashes it into falling shards, and the
-// cracks slowly heal over, so it pieces itself back together
-const GLS = { cracks: [], shards: [], arm: true };
-function glsImpact(x, y, size){
-  const segs = [], rays = 7 + ((Math.random()*5)|0), L = size*rnd(0.6, 1), ends = [];
-  for (let r = 0; r < rays; r++){
-    let a = r/rays*Math.PI*2 + rnd(-0.2, 0.2), px = x, py = y; const pts = [[x, y]];
-    for (let s = 1; s <= 5; s++){ a += rnd(-0.25, 0.25); const d = L*s/5; px = x + Math.cos(a)*d; py = y + Math.sin(a)*d; pts.push([px, py]); }
-    segs.push(pts); ends.push(pts);
-  }
-  for (const ring of [1, 3]){ const rp = ends.map(p => p[ring]); rp.push(rp[0]); segs.push(rp); }
-  GLS.cracks.push({ segs, x, y, a: 1, flash: 1 }); if (GLS.cracks.length > 12) GLS.cracks.shift();
-}
-function drawGlass(){
-  const k = p3tick(), top = area.top, bot = area.bottom, h = bot - top, M = Math.min(W, h);
-  if (F.kickNow && !reduceMotion) glsImpact(rnd(W*0.1, W*0.9), rnd(top + h*0.1, bot - h*0.1), M*(0.15 + F.bass*0.25));
-  if (F.drop > 0.95 && GLS.arm){ GLS.arm = false; GLS.cracks.length = 0; if (!reduceMotion) for (let i = 0; i < 80; i++){ const x = rnd(0, W), y = rnd(top, bot), s = rnd(10, 45)*(M/700); GLS.shards.push({ x, y, s, r: rnd(0, 6), vr: rnd(-0.15, 0.15), vx: rnd(-3, 3), vy: rnd(-6, 1), f: Math.random() }); } } else if (F.drop < 0.5) GLS.arm = true;
-  fade(0.5);
-  const sh = g.createLinearGradient(0, top, W, bot); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.48, col(0.6, 0.04 + F.bass*0.05)); sh.addColorStop(0.52, 'rgba(255,255,255,0)');
-  g.fillStyle = sh; g.fillRect(0, top, W, h);   // a glint across the glass
-  g.lineJoin = 'round';
-  for (let i = GLS.cracks.length - 1; i >= 0; i--){
-    const c = GLS.cracks[i]; c.a *= Math.pow(0.996, k); c.flash *= Math.pow(0.85, k); if (c.a < 0.03){ GLS.cracks.splice(i, 1); continue; }
-    g.strokeStyle = 'rgba(255,255,255,' + (c.a*0.75).toFixed(3) + ')'; g.lineWidth = 1.2; g.beginPath();
-    for (const pts of c.segs){ g.moveTo(pts[0][0], pts[0][1]); for (let q = 1; q < pts.length; q++) g.lineTo(pts[q][0], pts[q][1]); }
-    g.stroke();
-    if (c.flash > 0.02){ g.fillStyle = col(0.8, c.flash*0.6); g.beginPath(); g.arc(c.x, c.y, 6 + (1 - c.flash)*30, 0, Math.PI*2); g.fill(); }
-  }
-  for (let i = GLS.shards.length - 1; i >= 0; i--){
-    const s = GLS.shards[i]; s.vy += 0.35*k; s.x += s.vx*k; s.y += s.vy*k; s.r += s.vr*k; if (s.y > bot + 60){ GLS.shards.splice(i, 1); continue; }
-    g.save(); g.translate(s.x, s.y); g.rotate(s.r); g.fillStyle = col(s.f, 0.25); g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1;
-    g.beginPath(); g.moveTo(0, -s.s); g.lineTo(s.s*0.8, s.s*0.6); g.lineTo(-s.s*0.6, s.s*0.4); g.closePath(); g.fill(); g.stroke(); g.restore();
   }
 }
 
@@ -2672,44 +2461,6 @@ function drawNeon(){
   g.globalCompositeOperation = 'source-over';
 }
 
-// Pinball: the flippers fire on every boom (and smack the ball back up if it's close), the bumpers flash and kick on
-// the snare, and the drop goes multiball
-const PIN = { balls: [], flip: 0, bump: [0, 0, 0], arm: true };
-function drawPinball(){
-  const k = p3tick(), top = area.top, h = area.bottom - top, ph = h*0.94, pw = Math.min(W*0.62, ph*0.62), ox = (W - pw)/2, oy = top + (h - ph)/2, sc = ph/700;
-  const BUMP = [[0.3, 0.28], [0.7, 0.28], [0.5, 0.46]], br = pw*0.075, fl = [[0.27, 0.86, 1], [0.73, 0.86, -1]], flen = pw*0.22;
-  const spawn = () => PIN.balls.push({ x: ox + pw*0.92, y: oy + ph*0.85, vx: rnd(-2, -0.5)*sc, vy: -rnd(20, 26)*sc });
-  if (!PIN.balls.length) spawn();
-  if (F.kickNow || F.beatNow){ PIN.flip = 1; for (const b of PIN.balls) if (b.y > oy + ph*0.7 && b.vy > -4*sc) { b.vy = -rnd(15, 21)*sc*(0.85 + F.bass*0.3); b.vx = rnd(-6, 6)*sc; } }
-  if (F.snareNow){ const i = (Math.random()*3)|0; PIN.bump[i] = 1; }
-  if (F.drop > 0.95 && PIN.arm){ PIN.arm = false; for (let i = 0; i < 3; i++) spawn(); PIN.bump = [1, 1, 1]; } else if (F.drop < 0.5) PIN.arm = true;
-  fade(0.55);
-  g.strokeStyle = col(0.5, 0.35); g.lineWidth = 3; rr(ox, oy, pw, ph, pw*0.18); g.stroke();
-  BUMP.forEach(([bx, by], i) => {
-    const x = ox + bx*pw, y = oy + by*ph, v = PIN.bump[i];
-    g.fillStyle = col(0.15 + i*0.3, 0.35 + v*0.65); g.beginPath(); g.arc(x, y, br*(1 + v*0.15), 0, Math.PI*2); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,' + (0.3 + v*0.6).toFixed(3) + ')'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, br*0.6, 0, Math.PI*2); g.stroke();
-    PIN.bump[i] *= Math.pow(0.88, k);
-  });
-  const fa = (side) => side > 0 ? 0.5 - PIN.flip*0.9 : Math.PI - 0.5 + PIN.flip*0.9;
-  g.lineCap = 'round'; g.lineWidth = pw*0.035; g.strokeStyle = col(0.8, 0.9);
-  for (const [fx, fy, side] of fl){ const x = ox + fx*pw, y = oy + fy*ph, a = fa(side); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a)*flen, y + Math.sin(a)*flen); g.stroke(); }
-  g.lineCap = 'butt';
-  PIN.flip *= Math.pow(0.85, k);
-  const R = pw*0.028;
-  for (let i = PIN.balls.length - 1; i >= 0; i--){
-    const b = PIN.balls[i];
-    if (!reduceMotion){ b.vy += 0.45*sc*k; b.x += b.vx*k; b.y += b.vy*k; }
-    if (b.x < ox + R){ b.x = ox + R; b.vx = Math.abs(b.vx)*0.9; } if (b.x > ox + pw - R){ b.x = ox + pw - R; b.vx = -Math.abs(b.vx)*0.9; }
-    if (b.y < oy + R){ b.y = oy + R; b.vy = Math.abs(b.vy)*0.8; }
-    BUMP.forEach(([bx, by], j) => { const x = ox + bx*pw, y = oy + by*ph, dx = b.x - x, dy = b.y - y, d = Math.hypot(dx, dy); if (d < br + R){ const nx = dx/d, ny = dy/d, sp = Math.max(9*sc, Math.hypot(b.vx, b.vy)); b.x = x + nx*(br + R); b.y = y + ny*(br + R); b.vx = nx*sp; b.vy = ny*sp; PIN.bump[j] = 1; } });
-    if (b.y > oy + ph + R*3){ PIN.balls.splice(i, 1); continue; }
-    const gr = g.createRadialGradient(b.x - R*0.3, b.y - R*0.3, R*0.1, b.x, b.y, R); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#8c8fa0');
-    g.fillStyle = gr; g.beginPath(); g.arc(b.x, b.y, R, 0, Math.PI*2); g.fill();
-  }
-  if (PIN.balls.length > 5) PIN.balls.length = 5;
-}
-
 // Moshpit: a crowd seen from above. Heads jump (grow) on the boom, and the drop opens a circle pit: the middle
 // clears and everyone runs round it for a few seconds before closing back in
 const MOSH = { p: null, pit: 0, arm: true };
@@ -2733,35 +2484,6 @@ function drawMosh(){
     p.j *= Math.pow(0.88, k);
   }
   MOSH.pit *= Math.pow(0.994, k);
-}
-
-// Seismograph: a needle scratches the music onto paper scrolling past. Every boom kicks a spike into the line and
-// the drop is an earthquake: the whole machine shakes and the needle goes wild
-const SEIS = { v: [], scroll: 0, quake: 0, arm: true };
-function drawSeismo(){
-  const k = p3tick(), top = area.top, bot = area.bottom, h = bot - top, cy = top + h/2, nx = W*0.78, sp = 2.4;
-  if (F.drop > 0.95 && SEIS.arm){ SEIS.arm = false; SEIS.quake = 1; } else if (F.drop < 0.5) SEIS.arm = true;
-  const amp = 0.015 + F.mid*0.06 + F.kickEnv*0.32 + SEIS.quake*0.5;
-  const steps = Math.max(1, Math.round(k));
-  for (let s = 0; s < steps; s++) SEIS.v.unshift((Math.random()*2 - 1)*amp*h*0.42*(F.kickNow && s === 0 ? 1.4 : 1));
-  const maxN = Math.ceil(nx/sp) + 2; if (SEIS.v.length > maxN) SEIS.v.length = maxN;
-  SEIS.scroll = (SEIS.scroll + sp*k) % 40;
-  const qx = SEIS.quake*(Math.random() - 0.5)*18, qy = SEIS.quake*(Math.random() - 0.5)*18;
-  g.save(); g.translate(qx, qy);
-  fade(1);
-  g.fillStyle = 'rgba(245,240,228,0.06)'; g.fillRect(0, top + h*0.08, W, h*0.84);   // paper
-  g.strokeStyle = 'rgba(255,255,255,0.06)'; g.lineWidth = 1; g.beginPath();
-  for (let x = nx - SEIS.scroll; x > 0; x -= 40){ g.moveTo(x, top + h*0.08); g.lineTo(x, top + h*0.92); }
-  for (let y = top + h*0.08; y <= top + h*0.92; y += h*0.84/8){ g.moveTo(0, y); g.lineTo(W, y); }
-  g.stroke();
-  g.strokeStyle = col(0.15, 0.95); g.lineWidth = 1.6; g.beginPath();
-  for (let i = 0; i < SEIS.v.length; i++){ const x = nx - i*sp, y = cy + SEIS.v[i]; i ? g.lineTo(x, y) : g.moveTo(x, y); }
-  g.stroke();
-  const ty = cy + (SEIS.v[0] || 0);   // the needle arm
-  g.strokeStyle = col(0.7, 0.9); g.lineWidth = 3; g.beginPath(); g.moveTo(W*0.95, cy); g.lineTo(nx, ty); g.stroke();
-  g.fillStyle = col(0.9, 1); g.beginPath(); g.arc(nx, ty, 4, 0, Math.PI*2); g.fill(); g.beginPath(); g.arc(W*0.95, cy, 9, 0, Math.PI*2); g.fill();
-  g.restore();
-  SEIS.quake *= Math.pow(0.985, k);
 }
 
 // Lyrics for the Typewriter, looked up on LRCLIB (lrclib.net, free, no key) by song name, once per song.
@@ -3602,7 +3324,7 @@ function drawCrawl(){
   const fadeTop = g.createLinearGradient(0, top, 0, top + h*0.3); fadeTop.addColorStop(0, BGS); fadeTop.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = fadeTop; g.fillRect(0, top, W, h*0.3);
 }
 
-const DRAW = { orbit:drawOrbit, ridge:drawRidge, spectrum:drawSpectrum, scope:drawScope, warp:drawWarp, galaxy:drawGalaxy, synth:drawSynth, kaleido:drawKaleido, lava:drawLava, hyper:drawHyper, fireworks:drawFireworks, city:drawCity, dna:drawDNA, fire:drawFire, rain:drawRain, sphere:drawSphere , chrome:drawChrome, aurora:drawAurora, ink:drawInk, ripples:drawRipples, classic:drawClassic, mandala:drawMandala, lightning:drawLightning, vinyl:drawVinyl, hifi:drawHifi , cymatics:drawCymatics, blackhole:drawBlackHole, plexus:drawPlexus, spectro:drawSpectro, strings:drawStrings, ecg:drawECG, radar:drawRadar, lasers:drawLasers, trip:drawTrip , tunnel:drawTunnel, ptext:drawPText, topo:drawTopo, pendulum:drawPendulum, tree:drawTree, sunflower:drawSunflower, hex:drawHex, led:drawLED, bubbles:drawBubbles , jelly:drawJelly, blocks:drawBlocks, pads:drawPads, floor:drawFloor, sub:drawSub, step:drawStep, bounce:drawBounce, cube:drawCube, invaders:drawInvaders, snake:drawSnake, domino:drawDomino, glass:drawGlass, slots:drawSlots, neon:drawNeon, pinball:drawPinball, mosh:drawMosh, seismo:drawSeismo, type:drawType, highway:drawHighway, koi:drawKoi, slinky:drawSlinky, origami:drawOrigami, fairy:drawFairy, flag:drawFlag, karaoke:drawKaraoke, march:drawMarch, cam:drawCam, ninja:drawNinja, kinetic:drawKinetic, texts:drawTexts, flap:drawFlap, crawl:drawCrawl };
+const DRAW = { orbit:drawOrbit, ridge:drawRidge, scope:drawScope, galaxy:drawGalaxy, synth:drawSynth, kaleido:drawKaleido, hyper:drawHyper, fireworks:drawFireworks, city:drawCity, dna:drawDNA, fire:drawFire, rain:drawRain, chrome:drawChrome, aurora:drawAurora, ink:drawInk, classic:drawClassic, mandala:drawMandala, lightning:drawLightning, vinyl:drawVinyl, hifi:drawHifi, cymatics:drawCymatics, blackhole:drawBlackHole, plexus:drawPlexus, spectro:drawSpectro, strings:drawStrings, ecg:drawECG, radar:drawRadar, lasers:drawLasers, trip:drawTrip, tunnel:drawTunnel, ptext:drawPText, topo:drawTopo, pendulum:drawPendulum, tree:drawTree, sunflower:drawSunflower, hex:drawHex, led:drawLED, jelly:drawJelly, blocks:drawBlocks, pads:drawPads, floor:drawFloor, sub:drawSub, step:drawStep, bounce:drawBounce, cube:drawCube, invaders:drawInvaders, domino:drawDomino, slots:drawSlots, neon:drawNeon, mosh:drawMosh, type:drawType, highway:drawHighway, koi:drawKoi, slinky:drawSlinky, origami:drawOrigami, fairy:drawFairy, flag:drawFlag, karaoke:drawKaraoke, march:drawMarch, cam:drawCam, ninja:drawNinja, kinetic:drawKinetic, texts:drawTexts, flap:drawFlap, crawl:drawCrawl };
 
 /* ---------- drop detection ---------- */
 /* drops: "the low end went away (or wasn't there yet), then slammed in". Measured on the raw kick-band power
@@ -3747,8 +3469,8 @@ let autoSince = 0, autoBeats = 0, autoBag = [];
 // wild ones when it's going off
 const NRG = { ev: [], v: 0.45, tier: 'mid', last: 0 };
 const ENERGY_MODES = {
-  calm: ['aurora','ink','lava','galaxy','koi','jelly','bubbles','sunflower','tree','topo','pendulum','mandala','ripples','fairy','flag','origami','chrome','sphere','vinyl','hifi','cymatics','dna','slinky','crawl','orbit','ridge','kaleido'],
-  high: ['fireworks','lightning','mosh','hyper','warp','lasers','trip','tunnel','fire','glass','invaders','pads','floor','blocks','sub','step','bounce','highway','ninja','kinetic','city','synth','pinball','march','slots','domino','strings'],
+  calm: ['aurora','ink','galaxy','koi','jelly','sunflower','tree','topo','pendulum','mandala','fairy','flag','origami','chrome','vinyl','hifi','cymatics','dna','slinky','crawl','orbit','ridge','kaleido'],
+  high: ['fireworks','lightning','mosh','hyper','lasers','trip','tunnel','fire','invaders','pads','floor','blocks','sub','step','bounce','highway','ninja','kinetic','city','synth','march','slots','domino','strings'],
 };
 function modeTier(m){ return ENERGY_MODES.calm.includes(m) ? 'calm' : ENERGY_MODES.high.includes(m) ? 'high' : 'mid'; }
 function updateEnergy(now){

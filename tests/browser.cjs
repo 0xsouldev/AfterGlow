@@ -43,7 +43,7 @@ async function renderModes(browser, url, engine, viewport, label) {
   const { context, page, errors } = await contextFor(browser, url, { viewport });
   try {
     const modes = await page.locator('[data-mode]').evaluateAll(buttons => buttons.map(b => b.dataset.mode));
-    assert.equal(modes.length, 75);
+    assert.equal(modes.length, 65);
     const samples = [];
     for (const mode of modes) {
       await page.locator('#btnAllModes').click();
@@ -200,8 +200,8 @@ async function regressions(browser, url) {
       try { browser = await playwright[engine].launch({ headless: true, timeout: 20000 }); }
       catch (e) { results.push({ name: engine + ' launch', passed: false, error: e.message }); console.error('FAIL', engine, e.message); continue; }
       try {
-        if (groups.includes('renders')) await check(`${engine}: 75 desktop renders`, () => renderModes(browser, url, engine, { width: 1440, height: 900 }, 'desktop'));
-        if (groups.includes('renders')) await check(`${engine}: 75 mobile renders`, () => renderModes(browser, url, engine, { width: 390, height: 844 }, 'mobile'));
+        if (groups.includes('renders')) await check(`${engine}: 65 desktop renders`, () => renderModes(browser, url, engine, { width: 1440, height: 900 }, 'desktop'));
+        if (groups.includes('renders')) await check(`${engine}: 65 mobile renders`, () => renderModes(browser, url, engine, { width: 390, height: 844 }, 'mobile'));
         if (groups.includes('controls')) await check(`${engine}: controls, keyboard, persistence, playback and responsive panels`, () => controls(browser, url, engine));
         if (groups.includes('regressions')) await check(`${engine}: source ownership, lyrics, camera cleanup, timing and reduced motion`, () => regressions(browser, testUrl));
       } finally { await browser.close(); }
