@@ -21,7 +21,7 @@ const PALETTES = {
   gold:    { name:'Gold',    bg:'#0a0805', stops:['#7a4b0c','#c8891b','#ffd76a','#fff8e1'] },
 };
 const PAL_KEYS = Object.keys(PALETTES);
-const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
+const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 const MODES = Object.keys(MODE_NAMES);
 
 const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, autoEnergy:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
@@ -2926,11 +2926,10 @@ function drawType(){
     if (L.length >= maxC){ TYP.lines.push(''); L = ''; } TYP.lines[TYP.lines.length - 1] = L + ch; TYP.strike = 1;
   };
   const ly = lyr ? lyricLine() : null;
-  if (ly){   // synced: each line types itself out while it's being sung
+  if (ly){   // synced: each line appears whole on the screen when it starts being sung (no word-by-word typing to get wrong)
     const done = []; for (let q = 0; q < ly.i; q++) if (ly.L[q].s) done.push(ly.L[q].s);
-    let cur = '';
-    if (ly.cur && ly.cur.s) cur = typedSoFar(ly);
-    const wrapL = t => { const out = []; for (let q = 0; q < t.length; q += maxC) out.push(t.slice(q, q + maxC)); return out.length ? out : ['']; };
+    const cur = ly.cur && ly.cur.s ? ly.cur.s : '';
+    const wrapL = t => { const out = []; let line = ''; for (const w of t.split(/\s+/).filter(Boolean)){ for (let piece = w; piece.length; piece = piece.slice(maxC)){ const chunk = piece.slice(0, maxC), t2 = line ? line + ' ' + chunk : chunk; if (t2.length > maxC && line){ out.push(line); line = chunk; } else line = t2; } } if (line || !out.length) out.push(line); return out; };   // wrap on whole words
     const lines = done.slice(-6).flatMap(wrapL).concat(wrapL(cur));
     if (cur.length !== TYP.typed){ if (cur.length > TYP.typed) TYP.strike = 1; TYP.typed = cur.length; }
     TYP.lines = lines.slice(-7);
@@ -2939,7 +2938,7 @@ function drawType(){
   if (TYP.lines.length > 7) TYP.lines.shift();
   if (F.drop > 0.95 && TYP.arm){ TYP.arm = false; TYP.ding = 1; } else if (F.drop < 0.5) TYP.arm = true;
   fade(1);
-  // Laptop: the lyrics type out on the screen in your palette's colours; the keyboard is backlit and each key lights as it's typed
+  // Laptop: the lyrics appear line by line on the screen in your palette's colours; the keyboard is backlit and each key lights as it's typed
   const cur = TYP.lines[TYP.lines.length - 1], off = 0, lh = fs*1.5, sw = pw/0.86, sh = sw*0.6, sx0 = cx - sw/2, sy0 = top + h*0.04, platY = sy0 + sh;
   { const lg = g.createRadialGradient(cx, sy0 + sh*0.5, 0, cx, sy0 + sh*0.5, Math.max(W, h)*0.7);   // the screen lights up the room, breathing with the bass
     lg.addColorStop(0, col(0.5, 0.1 + F.bass*0.18 + F.kickEnv*0.06)); lg.addColorStop(1, col(0.5, 0)); g.fillStyle = lg; g.fillRect(0, top, W, h); }
@@ -3151,24 +3150,15 @@ function drawFlag(){
   g.fillStyle = '#c9ccd6'; g.fillRect(x0 - 6, fy - h*0.04, 6, area.bottom - fy); g.beginPath(); g.arc(x0 - 3, fy - h*0.04, 7, 0, Math.PI*2); g.fill();
 }
 
-// Karaoke Ball: your custom text as on-screen lyrics, with the bouncing ball hopping one word per beat (one letter
-// per beat if it's a single word). Sung words light up; the drop bursts the ball into confetti
-const KAR = { i: 0, t0: 0, conf: [], arm: true };
+// Karaoke: the line being sung appears big and bright on a stage (a quick pop when it changes), with the next line
+// waiting dimmer underneath. Whole lines only, so it never depends on guessing which word is being sung. Without
+// lyrics it shows your text, pulsing on the beat. The drop bursts confetti
+const KAR = { key: '', t0: 0, conf: [], arm: true };
 function drawKaraoke(){
   const k = p3tick(), top = area.top, h = area.bottom - top, now = performance.now(), raw = brandText().trim();
-  let toks = null, synced = false; const ly = settings.lyrics ? lyricLine() : null;
-  if (ly && ((ly.cur && ly.cur.s) || ly.next)){   // synced lyrics: the ball hops word by word through the line being sung
-    const cw = ly.cur && ly.cur.s ? ly.cur.s.split(/\s+/).filter(Boolean) : [], nw = ly.next ? ly.next.s.split(/\s+/).filter(Boolean) : [];
-    toks = cw.concat(nw); synced = toks.length > 0; KAR.brk = cw.length || -1;
-    if (cw.length){ const wp = wordAt(ly, cw); KAR.i = wp.wi; KAR.t0 = now - wp.frac*wp.dur; KAR.hop = Math.max(80, wp.dur); }
-    else KAR.i = -1;
-  }
-  if (!synced){
-    KAR.brk = -1;
-    toks = raw.split(/\s+/).filter(Boolean); if (toks.length < 3) toks = raw.replace(/\s+/g, '').toUpperCase().split('');
-    while (toks.length < 6) toks = toks.concat(toks);
-    if (F.beatNow){ KAR.i = (KAR.i + 1) % toks.length; KAR.t0 = now; }
-  }
+  const ly = settings.lyrics ? lyricLine() : null, synced = !!(ly && ((ly.cur && ly.cur.s) || ly.next));
+  const cur = synced ? (ly.cur && ly.cur.s ? ly.cur.s : '') : raw, next = synced && ly.next ? ly.next.s : '';
+  const key = (synced ? ly.i : 'txt') + '|' + cur; if (key !== KAR.key){ KAR.key = key; KAR.t0 = now; }
   if (F.drop > 0.95 && KAR.arm){ KAR.arm = false; if (!reduceMotion) for (let i = 0; i < 80; i++) KAR.conf.push({ x: W/2, y: top + h*0.35, vx: rnd(-8, 8), vy: rnd(-10, 2), f: Math.random(), l: 1 }); } else if (F.drop < 0.5) KAR.arm = true;
   fade(0.7);
   { // the stage: all behind the lyrics, kept dim so the words stay readable
@@ -3185,17 +3175,20 @@ function drawKaraoke(){
     g.globalCompositeOperation = 'source-over';
   }
   g.shadowColor = 'rgba(0,0,0,0.85)'; g.shadowBlur = 18;   // dark halo keeps the words crisp over the lights
-  const fs = Math.round(Math.min(h*0.11, W*0.07)); g.font = '800 ' + fs + 'px ' + FONT_D; g.textBaseline = 'alphabetic'; g.textAlign = 'left';
-  const sp = g.measureText(' ').width, lines = [[]]; let lw = 0;
-  toks.forEach((t, i) => { const w = g.measureText(t).width; if ((lw + w > W*0.84 || i === KAR.brk) && lines[lines.length - 1].length){ lines.push([]); lw = 0; } lines[lines.length - 1].push({ t, i, w }); lw += w + sp; });
-  const li = lines.findIndex(L => L.some(o => o.i === KAR.i)), show = lines.slice(Math.max(0, li), Math.max(0, li) + 2), lh = fs*1.8, y0 = top + h*0.55;
-  let ball = null;
-  show.forEach((L, r) => {
-    const tw = L.reduce((s, o) => s + o.w, 0) + sp*(L.length - 1); let x = (W - tw)/2; const y = y0 + r*lh;
-    for (const o of L){ const sung = o.i < KAR.i || (o.i === KAR.i), curr = o.i === KAR.i; g.fillStyle = curr ? col(0.85, 1) : sung && r === 0 ? col(0.3, 0.9) : col(0.6, 0.38); g.fillText(o.t, x, y); if (curr) ball = [x + o.w/2, y - fs*1.05]; o.x = x; x += o.w + sp; }
-  });
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const wrap = (txt, maxW) => { const out = [], ws = txt.split(/\s+/).filter(Boolean); let line = ''; for (const w of ws){ const t2 = line ? line + ' ' + w : w; if (g.measureText(t2).width > maxW && line){ out.push(line); line = w; } else line = t2; } if (line) out.push(line); return out; };
+  let fs = Math.round(Math.min(h*0.1, W*0.065)); g.font = '800 ' + fs + 'px ' + FONT_D;
+  let rows = wrap(cur, W*0.84); if (rows.length > 3){ fs = Math.round(fs*0.75); g.font = '800 ' + fs + 'px ' + FONT_D; rows = wrap(cur, W*0.86); }
+  const t = clamp((now - KAR.t0)/260, 0, 1), ease = 1 - Math.pow(1 - t, 3), beat = synced ? 0 : F.beat*0.06;   // the new line pops in: rises, grows and fades up
+  const lh = fs*1.25, cy = top + h*0.46;
+  g.save(); g.globalAlpha = ease; g.translate(W/2, cy + (1 - ease)*fs*0.5); g.scale(0.92 + 0.08*ease + beat, 0.92 + 0.08*ease + beat);
+  g.fillStyle = col(0.85, 1); rows.forEach((r, q) => g.fillText(r, 0, (q - (rows.length - 1)/2)*lh));
+  g.restore();
+  if (next && next !== cur){   // the next line, smaller and dim, so you can see what's coming
+    const f2 = Math.round(fs*0.55); g.font = '700 ' + f2 + 'px ' + FONT_D; g.fillStyle = col(0.5, 0.4);
+    const nr = wrap(next, W*0.8).slice(0, 2); nr.forEach((r, q) => g.fillText(r, W/2, cy + (rows.length/2)*lh + fs*0.6 + q*f2*1.3));
+  }
   g.shadowBlur = 0;
-  if (ball){ const t = clamp((now - KAR.t0)/(synced ? KAR.hop : bpmMs()), 0, 1), hop = Math.sin(t*Math.PI)*fs*0.9*(1 - t*0.3), r = fs*0.16*(1 + F.kickEnv*0.3); g.fillStyle = col(0.95, 1); g.beginPath(); g.arc(ball[0], ball[1] - hop + (1 - t)*fs*0.3, r, 0, Math.PI*2); g.fill(); }
   for (let i = KAR.conf.length - 1; i >= 0; i--){ const c = KAR.conf[i]; c.vy += 0.25*k; c.x += c.vx*k; c.y += c.vy*k; c.l -= 0.012*k; if (c.l <= 0){ KAR.conf.splice(i, 1); continue; } g.fillStyle = col(c.f, c.l); g.fillRect(c.x, c.y, 5, 3); }
 }
 
