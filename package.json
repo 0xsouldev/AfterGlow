@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node tests/server.cjs",
+    "start": "node dev-server.cjs",
     "test": "node tests/browser.cjs",
     "test:chromium": "node tests/browser.cjs chromium",
-    "check": "node --check assets/app.js && node --check tests/browser.cjs"
+    "check": "node --check assets/app.js && node --check tests/browser.cjs",
+    "test:audio": "node tests/audio-analysis.cjs",
+    "test:audio-browser": "node tests/audio-browser.cjs"
   },
-  "devDependencies": { "playwright": "1.56.1" }
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
 }

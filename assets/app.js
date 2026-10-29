@@ -24,7 +24,7 @@ const PAL_KEYS = Object.keys(PALETTES);
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 const MODES = Object.keys(MODE_NAMES);
 
-const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
+const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
 try {
   const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -38,6 +38,7 @@ try {
     if (Array.isArray(s.favorites)) settings.favorites = MODES.filter(m => s.favorites.includes(m));
     settings.autoFav = s.autoFav === true;
     if (['low', 'balanced', 'high'].includes(s.quality)) settings.quality = s.quality;
+    for(const k of ['dropSensitivity','dropImpact'])if(Number.isFinite(s[k]))settings[k]=clamp(s[k],0.5,1.5);
     settings.reduceFlashes = s.reduceFlashes === true;
     if (Array.isArray(s.autoSkip)) settings.autoSkip = MODES.filter(m => s.autoSkip.includes(m));
     if (typeof s.text === 'string') settings.text = s.text.slice(0, 24);
@@ -118,6 +119,57 @@ function summarize(){
 /* ---------- audio engine ---------- */
 let AC = null, analyser, anBand, anBeat, anL, anR, splitter, freqByte, bandByte, beatByte, timeF, timeL, timeR, bandMap = [];
 const FFT = 4096;
+const ASSETS = new URL('./', document.currentScript.src);
+const AUDIO = { node:null, worker:null, source:null, loading:false, ready:false, session:0, pending:[], latest:null, options:'' };
+function resetAudioClock(){
+  AUDIO.session++; AUDIO.pending=[]; AUDIO.latest=null;
+  F.drop = 0; F.dropNow = false; F.dropStrength = 0;
+  if (AUDIO.worker) AUDIO.worker.postMessage({type:'reset', session:AUDIO.session, rate:AC.sampleRate});
+  if (AUDIO.node) AUDIO.node.port.postMessage({session:AUDIO.session});
+}
+function audioFallback(){
+  AUDIO.ready=false; AUDIO.loading=false; AUDIO.pending=[]; AUDIO.latest=null;
+  if(AUDIO.node){try{if(AUDIO.source) AUDIO.source.disconnect(AUDIO.node);AUDIO.node.disconnect();}catch(e){} AUDIO.node=null;}
+  if(AUDIO.worker){AUDIO.worker.terminate();AUDIO.worker=null;}
+}
+async function initAudioClock(){
+  if(AUDIO.loading || AUDIO.ready || !AC.audioWorklet || !window.Worker)return;
+  AUDIO.loading=true;
+  try{
+    await AC.audioWorklet.addModule(new URL('audio-worklet.js',ASSETS));
+    AUDIO.worker=new Worker(new URL('audio-worker.js',ASSETS));
+    AUDIO.worker.onerror=audioFallback;
+    AUDIO.node=new AudioWorkletNode(AC,'afterglow-capture');
+    AUDIO.node.onprocessorerror=audioFallback;
+    AUDIO.node.port.onmessage=({data})=>{if(AUDIO.worker && data.session===AUDIO.session) AUDIO.worker.postMessage(data,[data.samples.buffer]);};
+    AUDIO.worker.onmessage=({data})=>{
+      if(data.session!==AUDIO.session)return;
+      AUDIO.latest=data;
+      // Old events are discarded rather than replayed as a burst after a stalled frame.
+      if(AC.currentTime-data.time<0.25){AUDIO.pending.push(data);if(AUDIO.pending.length>32)AUDIO.pending.shift();}
+    };
+    AUDIO.node.connect(AC.destination);
+    if(AUDIO.source)AUDIO.source.connect(AUDIO.node);
+    AUDIO.ready=true;AUDIO.options='';resetAudioClock();
+  }catch(e){audioFallback();}
+  finally{AUDIO.loading=false;}
+}
+function clockFrame(now){
+  const fresh=AUDIO.latest && AC.currentTime-AUDIO.latest.time<0.25;
+  const options=JSON.stringify({source:settings.beatSrc,dropSensitivity:settings.dropSensitivity});
+  if(options!==AUDIO.options){AUDIO.options=options;AUDIO.worker.postMessage({type:'options',options:JSON.parse(options)});}
+  const events=AUDIO.pending.filter(x=>AC.currentTime-x.time<0.25);AUDIO.pending=[];
+  F.kickNow=events.some(x=>x.kick);F.snareNow=events.some(x=>x.snare);F.hatNow=events.some(x=>x.hat);
+  F.beatNow=tapAssist(events.some(x=>x.beat),now);
+  const strength=Math.max(0,...events.map(x=>x.drop));
+  if(strength){F.drop=1;F.dropNow=true;F.dropStrength=strength;}
+  else F.drop*=Math.pow(0.94,frameScale);
+  if(fresh){BT.src=AUDIO.latest.source==='snare'?'mid':AUDIO.latest.source==='all'?'all':'low';const label=$('#beatNowSrc');if(label)label.textContent=SRC_NAME[BT.src];}
+  if(fresh && now>=TAP.until){TEMPO.bpm=AUDIO.latest.confidence>=0.55?AUDIO.latest.bpm:0;TEMPO.lastGood=now;}
+  if(F.beatNow){BT.last=beatSt.last=now;if(DBG)DBG.beats++;}
+  if(DBG)DBG.audio={...AUDIO.latest,mode:'audio-clock',session:AUDIO.session};
+}
+
 function ensureCtx(){
   if (!AC) {
     const C = window.AudioContext || window.webkitAudioContext;
@@ -139,15 +191,16 @@ function ensureCtx(){
       else bandMap.push({ lo:Math.floor(lo), hi:Math.min(bandByte.length-1, Math.ceil(hi)) });
     }
   }
+  if(!AUDIO.ready && !AUDIO.loading && !AUDIO.attempted){AUDIO.attempted=true;initAudioClock();}
   if (AC.state === 'suspended') AC.resume().catch(()=>{});
   return AC;
 }
-function attach(node){ node.connect(analyser); node.connect(anBand); node.connect(anBeat); node.connect(splitter); }
+function attach(node){ AUDIO.source=node; if(AUDIO.node)node.connect(AUDIO.node); node.connect(analyser); node.connect(anBand); node.connect(anBeat); node.connect(splitter); }
 
 /* beat + tempo */
 const beatSt = { hist:new Float32Array(43), hi:0, filled:0, last:0, iv:[] };
 const DBG = location.hash === '#debug' ? (window.__ag = { beats: 0 }) : null;   // test hook, only with #debug in the URL
-function resetBeat(){ beatSt.hi=0; beatSt.filled=0; beatSt.last=0; beatSt.iv=[]; if (typeof resetTempo === 'function') resetTempo(); if (typeof resetOnset === 'function') resetOnset(); if (typeof resetDrop === 'function') resetDrop(); }
+function resetBeat(){ resetAudioClock(); beatSt.hi=0; beatSt.filled=0; beatSt.last=0; beatSt.iv=[]; if (typeof resetTempo === 'function') resetTempo(); if (typeof resetOnset === 'function') resetOnset(); if (typeof resetDrop === 'function') resetDrop(); }
 function detectBeat(e, now){
   const h = beatSt.hist, n = beatSt.filled; let avg=0, v=0;
   for (let i=0;i<n;i++) avg += h[i]; avg /= (n||1);
@@ -374,12 +427,15 @@ function vocalOnsets(now){
 function heardWord(ly, words, guess){   // nudge the guessed word to the syllables actually heard since the line started
   if (!settings.listen || !F.live || !guess) return guess;
   const t = performance.now()/1000, lineAt = t - (ly.pos - ly.start), on = VOC.on.filter(x => x >= lineAt - 0.1);
-  if (!on.length) return guess;
+  if (on.length < 3 || ly.pos < ly.start || ly.pos >= ly.end) return guess;
+  const gaps = on.slice(1).map((x,i) => x-on[i]);
+  if (gaps.some(x => x < 0.09 || x > 0.8)) return guess;
   const lastOn = on[on.length - 1]; let k = on.length - 1, wi = 0;
   for (let q = 0; q < words.length; q++){ wi = q; k -= syl(words[q]); if (k < 0) break; }
   if (t - lastOn > 1.5 && guess.wi > wi) return guess;   // gone quiet: trust the guess again
-  wi = clamp(wi, Math.max(0, guess.wi - 1), Math.min(words.length - 1, guess.wi + 1));
-  return { wi, frac: clamp((t - lastOn)/Math.max(0.12, guess.dur/1000), 0, 1), dur: guess.dur, timed: false, heard: true };
+  if(wi !== guess.wi)return guess; // Voice-band energy cannot establish a different word.
+  const fraction=clamp((t-lastOn)/Math.max(0.12,guess.dur/1000),0,1), bound=Math.min(0.2,180/Math.max(1,guess.dur));
+  return { ...guess, frac: clamp(fraction,Math.max(0,guess.frac-bound),Math.min(1,guess.frac+bound)), heard: true };
 }
 function analyzeLive(now){
   analyser.getByteFrequencyData(freqByte);
@@ -423,10 +479,11 @@ function analyzeLive(now){
   // kick energy from the fast analyser (≈40–140 Hz)
   const bh = AC.sampleRate/1024; let e = 0, cnt = 0;
   for (let i=Math.max(1,Math.floor(40/bh)); i<=Math.ceil(140/bh); i++){ e += beatByte[i]; cnt++; }
-  F.beatNow = tapAssist(DBG && DBG.algo === 'old' ? detectBeat(e/cnt/255, now) : detectBeats(beatByte, bh, now), now);
+  if(AUDIO.ready) clockFrame(now);
+  else F.beatNow = tapAssist(DBG && DBG.algo === 'old' ? detectBeat(e/cnt/255, now) : detectBeats(beatByte, bh, now), now);
   if (DBG && !DBG.first){ let mx = 0; for (let i = 0; i < 40; i++) if (beatByte[i] > mx) mx = beatByte[i]; if (mx > 64) DBG.first = now; }
   if (DBG && DBG.rec) DBG.rec.push([audioEl ? audioEl.currentTime : -1, now, Array.from(beatByte.subarray(0, 110))]);
-  tempoFeed(beatByte, bh, now);
+  if(!AUDIO.ready) tempoFeed(beatByte, bh, now);
   summarize();
 }
 
@@ -1213,7 +1270,7 @@ window.addEventListener('message', e => {   // Only accept the expected song/lyr
   const d = e.data;
   if (!/^https:\/\/([a-z0-9-]+\.)?music\.apple\.com$/.test(e.origin) || !d || d.afterglow !== 'song' || typeof d.title !== 'string') return;
   const t = d.title.replace(/\s+/g, ' ').trim().slice(0, 200); if (!t) return;
-  if (t !== linkedSong) { APL.lines = []; APL.i = -1; APL.avg = 3.5; ATT.ok = false; }
+  if (t !== linkedSong) { if(current && current.kind==='display')resetBeat(); APL.lines = []; APL.i = -1; APL.avg = 3.5; ATT.ok = false; }
   if (t !== linkedSong && settings.songText && current && current.kind === 'display') toast('Now playing: ' + t, 2200);
   linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
   LINK.v = Number(d.v) || 1; if (LINK.v < 6 && !LINK.warned){ LINK.warned = true; toast('Your Afterglow link bookmark is out of date. Hard refresh this page and drag a fresh one from Settings.', 6000); }
@@ -1229,6 +1286,7 @@ window.addEventListener('message', e => {   // Only accept the expected song/lyr
     if (L.length){ ATT.lines = L.sort((a, b) => a.t - b.t); ATT.title = t; ATT.kind = String(d.ttml.kind || '').slice(0, 20); }
   }
   ATT.ok = d.ttmlOk === true && ATT.title === t; ATT.dbg = typeof d.ttmlDbg === 'string' ? d.ttmlDbg.slice(0, 120) : '';
+  if(linkedActive() && typeof d.pos==='number' && LINK.pos!==null){const expected=LINK.pos+(LINK.playing?(performance.now()-LINK.at)/1000:0);if(Math.abs(d.pos-expected)>1 || d.playing!==LINK.playing){resetBeat();WLOCK.key='';}}
   LINK.pos = typeof d.pos === 'number' && isFinite(d.pos) && d.pos >= 0 ? d.pos : null; LINK.playing = d.playing === true; LINK.dur = typeof d.dur === 'number' && isFinite(d.dur) ? d.dur : 0; LINK.at = linkedAt;
 });
 function inspectorBookmarklet(){   // one-off: snapshots how Apple Music's lyrics part of the page is built, so the link can be tuned to it
@@ -2692,11 +2750,39 @@ function drawSeismo(){
 
 // Lyrics for the Typewriter, looked up on LRCLIB (lrclib.net, free, no key) by song name, once per song.
 // Only the song name and artist are sent. If it can't be reached (offline, or blocked), the Typewriter uses your text
-const LYR = { key: '', text: '', sync: null, state: '', song: '' };
+// LYRIC_MATCH_HELPERS_START
+function lyricNorm(value){ return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim(); }
+function lyricSimilarity(a,b){
+  a=lyricNorm(a);b=lyricNorm(b);if(!a || !b)return 0;if(a===b)return 1;
+  const x=new Set(a.split(' ')),y=new Set(b.split(' '));return 2*[...x].filter(w=>y.has(w)).length/(x.size+y.size);
+}
+function lyricMatchScore(song, hit, duration){
+  const title=lyricSimilarity(song.title,hit.trackName), artist=song.artist?lyricSimilarity(song.artist,hit.artistName):1;
+  if(title<0.65 || artist<0.5)return -1;
+  const versions=t=>(lyricNorm(t).match(/\b(live|remix|acoustic|instrumental|sped|slowed|karaoke)\b/g)||[]).sort().join(' ');
+  if(versions(song.title)!==versions(hit.trackName))return -1;
+  const delta=duration && Number.isFinite(hit.duration)?Math.abs(duration-hit.duration):null;
+  if(delta!==null && delta>Math.max(15,duration*0.08))return -1;
+  return title*0.55+artist*0.3+(delta===null?0.05:0.15*Math.max(0,1-delta/15));
+}
+// LYRIC_MATCH_HELPERS_END
+let lyricPrefs={};try{const stored=JSON.parse(localStorage.getItem('afterglow.lyrics')||'{}');if(stored && typeof stored==='object' && !Array.isArray(stored))lyricPrefs=stored;}catch(e){}
+function lyricTrackKey(){const s=songNow();return s?JSON.stringify([lyricNorm(s.title),lyricNorm(s.artist)]):'';}
+function lyricOffset(){const p=lyricPrefs[lyricTrackKey()];return p && Number.isFinite(p.offset)?clamp(p.offset,-1,2):settings.lyrOff;}
+function saveLyricPreference(patch){const key=lyricTrackKey();if(!key)return;lyricPrefs[key]={...lyricPrefs[key],...patch};const entries=Object.entries(lyricPrefs).slice(-100);lyricPrefs=Object.fromEntries(entries);try{localStorage.setItem('afterglow.lyrics',JSON.stringify(lyricPrefs));}catch(e){}}
+function applyLyricMatch(hit){
+  LYR.sync=hit && hit.syncedLyrics?parseLRC(hit.syncedLyrics):null;
+  LYR.text=hit?(hit.plainLyrics || hit.syncedLyrics.replace(/\[[^\]]*\]\s?/g,'')).replace(/\r/g,'').replace(/\n{2,}/g,'\n').trim():'';
+  LYR.state=hit?(LYR.sync && LYR.sync.length?'synced':'plain'):'none';WLOCK.key='';
+  const status=$('#lyricTimingStatus');if(status)status.textContent=hit?(LYR.sync && LYR.sync.length?(LYR.sync.some(x=>x.wt)?'Word timestamps available':'Line timing · estimated word progress'):'Text only · no timing'):'No confident match. Choose a version below.';
+}
+const LYR = { key: '', text: '', sync: null, state: '', song: '', candidates: [] };
 let lyricRequest = null;
 function resetLyrics(){
   if (lyricRequest) lyricRequest.abort(); lyricRequest = null;
-  Object.assign(LYR, { key: '', text: '', sync: null, state: '', song: '' });
+  Object.assign(LYR, { key: '', text: '', sync: null, state: '', song: '', candidates: [] });
+  const picker=$('#lyricMatch');if(picker){picker.replaceChildren(new Option('Automatic matching',''));picker.disabled=true;}
+  const status=$('#lyricTimingStatus');if(status)status.textContent='Waiting for song information';
   WLOCK.key = ''; WLOCK.wi = 0; WLOCK.frac = 0;
 }
 function songPos(){   // seconds into the song, or null if we can't tell
@@ -2739,7 +2825,7 @@ function wordAtRaw(ly, words){   // which word of the line is being sung: exact 
     const t0 = wt[wi], t1 = wi + 1 < wt.length ? wt[wi + 1] : Math.max(t0 + 0.35, ly.end);
     return { wi, frac: clamp((ly.pos - t0)/Math.max(0.05, t1 - t0), 0, 1), dur: (t1 - t0)*1000, timed: true };
   }
-  const wts = words.map(w => syl(w) + 0.35), tot = wts.reduce((a, b) => a + b, 0), span = Math.max(0.3, Math.min((ly.end - ly.start)*0.75, tot*0.22));
+  const wts = words.map(w => syl(w) + 0.35), tot = wts.reduce((a, b) => a + b, 0), span = Math.max(0.3, ly.end - ly.start); // Estimates use the whole line, including held vocals.
   const e = clamp((ly.pos - ly.start)/span, 0, 0.9999)*tot; let acc = 0;
   for (let q = 0; q < wts.length; q++){ if (e < acc + wts[q]) return heardWord(ly, words, { wi: q, frac: (e - acc)/wts[q], dur: wts[q]/tot*span*1000, timed: false }); acc += wts[q]; }
   return heardWord(ly, words, { wi: words.length - 1, frac: 1, dur: 300, timed: false });
@@ -2755,20 +2841,20 @@ function aplOn(){ return settings.lyrics && linkedActive() && APL.lines.length >
 function lyricLine(){   // the synced line being sung now: { i, cur, next, start, end }
   if (!settings.lyrics) return null;
   if (attOn()){   // Apple's own word-timed lyrics + the exact playback position: the most precise source
-    const L = ATT.lines, pos = songPos() + settings.lyrOff - 0.15;
-    let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos + 0.1) i = q; else break; }
+    const L = ATT.lines, pos = songPos() + lyricOffset();
+    let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos) i = q; else break; }
     const nxt = L.slice(i + 1).find(x => x.s), end = i + 1 < L.length ? L[i + 1].t : (i >= 0 ? L[i].t + 5 : 0);
     return { i, pos, L, cur: i >= 0 ? L[i] : null, next: nxt || null, start: i >= 0 ? L[i].t : 0, end };
   }
   if (aplOn()){   // from Apple Music's highlighted line: it started when the highlight moved; length guessed from the song's pace so far
     const L = APL.lines.map(x => ({ t: 0, s: x })), pos = performance.now()/1000, start = APL.at/1000, i = Math.min(APL.i, L.length - 1);
     // the highlight is seen up to a poll late, so start the line a little early
-    return { i, pos: pos + settings.lyrOff, L, cur: L[i], next: L.slice(i + 1).find(x => x.s) || null, start, end: start + APL.avg };
+    return { i, pos: pos + lyricOffset(), L, cur: L[i], next: L.slice(i + 1).find(x => x.s) || null, start, end: start + APL.avg };
   }
   lyricsNow(); const L = LYR.sync, p0 = songPos();
   if (!L || !L.length || p0 === null) return null;
-  const pos = p0 + settings.lyrOff - 0.15;   // your timing nudge (the default leans a little early)
-  let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos + 0.15) i = q; else break; }
+  const pos = p0 + lyricOffset();   // your timing nudge (the default leans a little early)
+  let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos) i = q; else break; }
   const nxt = L.slice(i + 1).find(x => x.s), end = i + 1 < L.length ? L[i + 1].t : (i >= 0 ? L[i].t + 5 : 0);
   return { i, pos, L, cur: i >= 0 ? L[i] : null, next: nxt || null, start: i >= 0 ? L[i].t : 0, end };
 }
@@ -2786,18 +2872,23 @@ function lyricsNow(){
     if (lyricRequest) lyricRequest.abort();
     const controller = lyricRequest = new AbortController();
     LYR.key = key; LYR.text = ''; LYR.sync = null; LYR.state = 'loading'; LYR.song = s.title + (s.artist ? ' by ' + s.artist : '');
+    const offset=$('#lyrOff');if(offset){offset.value=lyricOffset();offset.dispatchEvent(new Event('change'));}
+    const status=$('#lyricTimingStatus');if(status)status.textContent='Searching lyrics…';
     const clean = t => t.replace(/\s*[\(\[](feat|ft|with|prod)\.?[^\)\]]*[\)\]]/gi, '').replace(/\s*-\s*(single|ep|remaster(ed)?( \d{4})?)$/i, '').trim();
     const q = (clean(s.title) + ' ' + s.artist.split(/,|&| x | feat/i)[0]).trim();
     const go = (tries) => fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(q), { signal: controller.signal })
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(list => {
         if (LYR.key !== key || !Array.isArray(list)) return;
         const dur = songDur(), ok = list.filter(x => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics));
-        const synced = ok.filter(x => x.syncedLyrics).sort((a, b) => dur ? Math.abs((a.duration || 0) - dur) - Math.abs((b.duration || 0) - dur) : 0);
-        const hit = synced[0] || ok[0];
-        LYR.sync = hit && hit.syncedLyrics ? parseLRC(hit.syncedLyrics) : null;
-        LYR.state = hit ? (LYR.sync ? 'synced' : 'plain') : 'none';
-        if (hit) LYR.text = (hit.plainLyrics || hit.syncedLyrics.replace(/\[[^\]]*\]\s?/g, '')).replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim();
-      }).catch(() => { if (controller.signal.aborted || LYR.key !== key) return; if (tries > 0) setTimeout(() => { if (LYR.key === key) go(tries - 1); }, 4000); else LYR.state = 'error'; });
+        LYR.candidates=ok.map(hit=>({hit,score:lyricMatchScore(s,hit,dur)})).sort((a,b)=>b.score-a.score || Number(!!b.hit.syncedLyrics)-Number(!!a.hit.syncedLyrics)).slice(0,20);
+        const saved=lyricPrefs[lyricTrackKey()], chosen=saved && saved.id;
+        const best=LYR.candidates.find(x=>x.score>=0.75);
+        const hit=ok.find(x=>chosen!=null && String(x.id)===String(chosen)) || (best && best.hit);
+        const picker=$('#lyricMatch');
+        if(picker){picker.replaceChildren(new Option('Automatic matching',''));LYR.candidates.forEach(({hit},i)=>picker.add(new Option([hit.trackName,hit.artistName,hit.duration?Math.round(hit.duration)+'s':'',hit.syncedLyrics?'synced':'text'].filter(Boolean).join(' · '),String(i))));picker.disabled=!ok.length;picker.value=chosen!=null?String(LYR.candidates.findIndex(x=>String(x.hit.id)===String(chosen))):'';}
+        applyLyricMatch(hit);
+
+      }).catch(() => { if (controller.signal.aborted || LYR.key !== key) return; if (tries > 0) setTimeout(() => { if (LYR.key === key) go(tries - 1); }, 4000); else {LYR.state = 'error';const status=$('#lyricTimingStatus');if(status)status.textContent='Lyrics unavailable. Check your connection.';} });
     go(3);
   }
   return LYR.text;
@@ -3576,7 +3667,7 @@ function detectDrop(now){
   }
   if (strongKick) dropSt.prevKick = now;
   if (db > dropSt.pk) dropSt.pk = db;   // after the checks, so a frame is never compared with itself
-  if (fire){ dropSt.last = now; F.drop = 1; if (DBG){ (DBG.drops = DBG.drops || []).push(now); (DBG.why = DBG.why || []).push(DBG.dropWhy); } }
+  if (fire){ dropSt.last = now; F.drop = 1; F.dropNow=true; F.dropStrength=1; if (DBG){ (DBG.drops = DBG.drops || []).push(now); (DBG.why = DBG.why || []).push(DBG.dropWhy); } }
   else F.drop *= Math.pow(0.94, frameScale);
 }
 
@@ -3585,7 +3676,7 @@ function present(){
   const fx = settings.fx, cw = canvas.width, ch = canvas.height;
   out.setTransform(1, 0, 0, 1, 0, 0); out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1;
   let sx = 0, sy = 0;
-  if (fx.drops && F.drop > 0.03 && !reduceMotion){ const m = F.drop*16*DPR; sx = (Math.random() - 0.5)*m; sy = (Math.random() - 0.5)*m; out.fillStyle = BGS; out.fillRect(0, 0, cw, ch); }
+  if (fx.drops && F.drop > 0.03 && !reduceMotion){ const m = F.drop*16*DPR*(F.dropStrength||1)*settings.dropImpact; sx = (Math.random() - 0.5)*m; sy = (Math.random() - 0.5)*m; out.fillStyle = BGS; out.fillRect(0, 0, cw, ch); }
   if (!fx.mirror) out.drawImage(scene, sx, sy);
   else if (fx.mirror === 2){
     const hw = Math.ceil(cw/2);
@@ -3599,7 +3690,7 @@ function present(){
     sctx.globalCompositeOperation = 'copy'; sctx.drawImage(canvas, 0, 0, small.width, small.height);
     out.globalCompositeOperation = 'lighter'; out.globalAlpha = 0.4 + F.bass*0.35; out.drawImage(small, 0, 0, cw, ch); out.globalAlpha = 1;
   }
-  if (fx.drops && F.drop > 0.02 && !reduceMotion && !settings.reduceFlashes){ out.globalCompositeOperation = 'lighter'; out.fillStyle = col(0.9, F.drop*0.28); out.fillRect(0, 0, cw, ch); }
+  if (fx.drops && F.drop > 0.02 && !reduceMotion && !settings.reduceFlashes){ out.globalCompositeOperation = 'lighter'; out.fillStyle = col(0.9, F.drop*0.28*(F.dropStrength||1)*settings.dropImpact); out.fillRect(0, 0, cw, ch); }
   if (fx.vhs){
     out.globalCompositeOperation = 'source-over';
     if (!reduceMotion && !settings.reduceFlashes && ((F.beatNow && Math.random() < 0.6) || F.drop > 0.6)){
@@ -3651,7 +3742,7 @@ function stepMode(dir){
 function autoTick(now){
   if (!settings.auto) return;
   if (F.beatNow) autoBeats++;
-  if (settings.autoDrop && F.drop > 0.999 && autoBeats >= 4){ autoNext(); return; }   // big moment: switch right on the drop
+  if (settings.autoDrop && F.dropNow && autoBeats >= 4){ autoNext(); return; }   // big moment: switch right on the drop
   if ((autoBeats >= settings.autoEvery && F.beatNow) || now - autoSince > settings.autoEvery*800) autoNext();
 }
 
@@ -3671,6 +3762,7 @@ function readouts(now){
   if (beatDot){ beatDot.style.opacity = (0.15 + 0.85*F.beat).toFixed(2); beatDot.style.background = BT.src === 'mid' && settings.beatSrc === 'auto' || settings.beatSrc === 'snare' ? 'var(--accent-2)' : 'var(--accent)'; }
   for (let k=0;k<5;k++) fills[k].style.transform = 'scaleY(' + Math.max(0.05, F.meters[k]).toFixed(3) + ')';
   if (now - lastRO < 130) return; lastRO = now;
+  const tracking=$('#trackingStatus');if(tracking)tracking.textContent=!F.live?'Waiting for audio':AUDIO.ready && AUDIO.latest?'Beat confidence '+Math.round(AUDIO.latest.confidence*100)+'% · '+AUDIO.latest.phase:'Standard tracking';
   if (!F.live) { roLevel.textContent = '—'; roNote.textContent = '—'; roHz.textContent = 'Hz'; roBpm.textContent = '—'; return; }
   if (F.db > peakDb || now - peakT > 900) { peakDb = F.db; peakT = now; }
   roLevel.textContent = peakDb < -80 ? '−∞' : minus(peakDb);
@@ -3686,11 +3778,12 @@ function readouts(now){
 let lastFrameMs = 0, frameScale = 1;
 function frame(ms){
   const t = ms/1000; T = t; const fdt = lastFrameMs ? Math.min(100, ms - lastFrameMs) : 16.7; lastFrameMs = ms; frameScale = fdt/(1000/60);
+  F.dropNow=false;
   if (F.live && AC) analyzeLive(ms); else analyzePreview(t);
   F.beat = F.beatNow ? 1 : F.beat*Math.pow(0.9, fdt/16.7);
   { const dk = Math.pow(0.88, fdt/16.7); F.kickEnv = F.kickNow ? 1 : F.kickEnv*dk; F.snareEnv = F.snareNow ? 1 : F.snareEnv*dk; F.hatEnv = F.hatNow ? 1 : F.hatEnv*dk; }
   if (DBG) DBG.frames = (DBG.frames || 0) + 1;
-  detectDrop(ms);
+  if(!F.live || !AUDIO.ready) detectDrop(ms);
   autoTick(ms);
   const ease = 1 - Math.pow(0.92, frameScale);
   area.top += (target.top - area.top)*ease; area.bottom += (target.bottom - area.bottom)*ease;
@@ -3743,7 +3836,7 @@ function toPreview(){
   document.querySelectorAll('[data-src]').forEach(b => b.setAttribute('aria-pressed','false'));
   wakeOff(); clearTimeout(idleTimer); document.body.classList.remove('idle'); measure();
 }
-function stopCurrent(){ if (current) { try { current.stop(); } catch (e) {} current = null; } $('#transport').hidden = true; measure(); }
+function stopCurrent(){ AUDIO.source=null; resetAudioClock(); if (current) { try { current.stop(); } catch (e) {} current = null; } $('#transport').hidden = true; measure(); }
 
 function captureError(kind, e){
   const n = e && e.name;
@@ -3806,6 +3899,9 @@ function playFile(file){
   if (!audioEl) {
     audioEl = new Audio(); fileNode = AC.createMediaElementSource(audioEl);
     audioEl.addEventListener('timeupdate', syncTransport);
+    audioEl.addEventListener('seeking', () => {resetBeat();WLOCK.key='';});
+    audioEl.addEventListener('pause', resetBeat);
+    audioEl.addEventListener('ended', resetBeat);
     audioEl.addEventListener('play', syncTransport); audioEl.addEventListener('pause', syncTransport);
     audioEl.addEventListener('error', () => { if (current && current.kind === 'file') toast('This file won’t play here. It may be copy-protected or an unsupported format.'); });
   }
@@ -3945,6 +4041,7 @@ function setPalette(k){
   clearHard(); save();
 }
 
+for(const key of ['dropSensitivity','dropImpact']){const slider=$('#'+key);slider.value=settings[key];slider.addEventListener('input',()=>{settings[key]=+slider.value;save();});}
 const quality = $('#quality'); quality.value = settings.quality;
 quality.addEventListener('change', () => { settings.quality = quality.value; resize(); save(); });
 const sens = $('#sens'), smooth = $('#smooth');
@@ -4034,8 +4131,12 @@ $('#poolFav').addEventListener('click', () => {
 });
 $('#poolNone').addEventListener('click', () => { settings.autoSkip = MODES.slice(); settings.autoFav = false; autoBag = []; syncSettingsPanel(); save(); });
 ctext.addEventListener('input', () => { settings.text = ctext.value.slice(0, 24); save(); });
-{ const lo = $('#lyrOff'), lt = $('#lyrOffTxt'), say = () => { const v = settings.lyrOff; lt.textContent = (Math.abs(v) < 0.025 ? 'Right on the music' : 'Lyrics ' + Math.abs(v).toFixed(2) + ' s ' + (v > 0 ? 'early' : 'late')) + '. Slide right if they lag, left if they rush.'; };
-  lo.value = settings.lyrOff; say(); lo.addEventListener('input', () => { settings.lyrOff = +lo.value; say(); save(); }); }
+$('#lyricMatch').addEventListener('change',event=>{
+  const choice=event.target.value, selected=choice===''?LYR.candidates.find(x=>x.score>=0.75):LYR.candidates[Number(choice)];
+  saveLyricPreference({id:choice===''?null:selected && selected.hit.id});applyLyricMatch(selected && selected.hit);
+});
+{ const lo = $('#lyrOff'), lt = $('#lyrOffTxt'), say = () => { const v = lyricOffset(); lt.textContent = (Math.abs(v) < 0.025 ? 'Right on the music' : 'Lyrics ' + Math.abs(v).toFixed(2) + ' s ' + (v > 0 ? 'early' : 'late')) + '. Slide right if they lag, left if they rush.'; };
+  lo.value = lyricOffset(); say(); lo.addEventListener('change',say); lo.addEventListener('input', () => { if(songNow())saveLyricPreference({offset:+lo.value});else settings.lyrOff=+lo.value; WLOCK.key='';say();save(); }); }
 { const bm = $('#bmLink'), url = location.href.split('#')[0], ok = location.protocol === 'https:' && window.top === window;
   bm.href = bookmarkletFor(url); const bi = $('#bmInspect'); bi.href = inspectorBookmarklet();
   bi.addEventListener('click', e => { e.preventDefault(); toast('Drag this to your bookmarks bar, then click it on Apple Music with the lyrics view open', 3600); });

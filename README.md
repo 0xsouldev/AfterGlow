@@ -60,3 +60,20 @@ Use `npm run test:chromium` for a Chromium-only run. Screenshots and machine-rea
 The suite selects all 75 modes through the UI at desktop and mobile sizes, waits for transitions to settle, checks continuing animation and nonblank canvas output, and saves screenshots. It also covers search/favourites persistence, keyboard focus, responsive panels, local file playback/seeking, stale capture requests, lyric source isolation, camera cleanup, refresh-rate-independent vinyl motion, and reduced-motion flashes.
 
 Capture regression checks use synthetic MediaStreams, and lyric requests use fixtures. Real Apple Music sessions, physical microphones/cameras, OS sharing pickers, and performance on physical phones require manual device checks.
+
+## Audio timing and lyric matching
+
+Supported browsers capture fixed 512-sample audio blocks in an AudioWorklet and analyze them in a worker. Tempo confidence and a predictive beat grid are separate from kick, snare and hi-hat events. Silence, seeking and source changes reset tracking; browsers without worklet support keep the original analyser fallback. Beat tracking still needs several beats to settle, and syncopated or changing-tempo music can remain uncertain.
+
+Drop detection combines a sustained energy/bass breakdown with the return of energy, drums and spectral change. **Drop sensitivity** changes the detection threshold; **Drop impact** changes the global flash/shake strength. Reduced-motion and reduced-flash settings remain respected. This detector is best suited to breakdown-and-return drops, not every musical transition.
+
+LRCLIB results are ranked by title, artist, version and available track duration. Weak matches are left unselected. **Lyrics version** lets you choose another result; the choice and timing offset are remembered per title/artist in this browser (up to 100 songs). Exact word timestamps take priority. Line-only lyrics use estimated progress across the whole line and say so in Settings. Experimental voice listening only nudges progress within the estimated word, by at most 180 ms; it does not transcribe vocals.
+
+Additional tests are separate from the existing browser checks:
+
+```sh
+npm run test:audio
+npm run test:audio-browser
+```
+
+The first covers synthetic tempo, missing beats, silence, breakdown drops, PCM analysis at 44.1/48 kHz, lyric matching and timing. The second runs the real worklet/worker in Chromium and checks seek resets, version selection, persisted lyric preferences and mobile settings. `npm start` serves the new audio assets; `tests/server.cjs` remains the original isolated browser-fixture server.
