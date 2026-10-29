@@ -119,7 +119,14 @@ function summarize(){
 /* ---------- audio engine ---------- */
 let AC = null, analyser, anBand, anBeat, anL, anR, splitter, freqByte, bandByte, beatByte, timeF, timeL, timeR, bandMap = [];
 const FFT = 4096;
-const ASSETS = new URL('./', document.currentScript.src);
+const ASSETS = (() => {
+  try {
+    const src = document.currentScript && document.currentScript.src;
+    if (!src) return null;
+    const url = new URL(src);
+    return /^https?:$/.test(url.protocol) ? new URL('./', url) : null;
+  } catch (e) { return null; }
+})();
 const AUDIO = { node:null, worker:null, source:null, loading:false, ready:false, session:0, pending:[], latest:null, options:'' };
 function resetAudioClock(){
   AUDIO.session++; AUDIO.pending=[]; AUDIO.latest=null;
@@ -133,7 +140,7 @@ function audioFallback(){
   if(AUDIO.worker){AUDIO.worker.terminate();AUDIO.worker=null;}
 }
 async function initAudioClock(){
-  if(AUDIO.loading || AUDIO.ready || !AC.audioWorklet || !window.Worker)return;
+  if(!ASSETS || AUDIO.loading || AUDIO.ready || !AC.audioWorklet || !window.Worker)return;
   AUDIO.loading=true;
   try{
     await AC.audioWorklet.addModule(new URL('audio-worklet.js',ASSETS));
@@ -162,8 +169,7 @@ function clockFrame(now){
   F.kickNow=events.some(x=>x.kick);F.snareNow=events.some(x=>x.snare);F.hatNow=events.some(x=>x.hat);
   F.beatNow=tapAssist(events.some(x=>x.beat),now);
   const strength=Math.max(0,...events.map(x=>x.drop));
-  if(strength){F.drop=1;F.dropNow=true;F.dropStrength=strength;}
-  else F.drop*=Math.pow(0.94,frameScale);
+  if(strength) fireDrop(now,strength,'worker');
   if(fresh){BT.src=AUDIO.latest.source==='snare'?'mid':AUDIO.latest.source==='all'?'all':'low';const label=$('#beatNowSrc');if(label)label.textContent=SRC_NAME[BT.src];}
   if(fresh && now>=TAP.until){TEMPO.bpm=AUDIO.latest.confidence>=0.55?AUDIO.latest.bpm:0;TEMPO.lastGood=now;}
   if(F.beatNow){BT.last=beatSt.last=now;if(DBG)DBG.beats++;}
@@ -191,7 +197,7 @@ function ensureCtx(){
       else bandMap.push({ lo:Math.floor(lo), hi:Math.min(bandByte.length-1, Math.ceil(hi)) });
     }
   }
-  if(!AUDIO.ready && !AUDIO.loading && !AUDIO.attempted){AUDIO.attempted=true;initAudioClock();}
+  if(ASSETS && !AUDIO.ready && !AUDIO.loading && !AUDIO.attempted){AUDIO.attempted=true;initAudioClock();}
   if (AC.state === 'suspended') AC.resume().catch(()=>{});
   return AC;
 }
@@ -479,7 +485,12 @@ function analyzeLive(now){
   // kick energy from the fast analyser (≈40–140 Hz)
   const bh = AC.sampleRate/1024; let e = 0, cnt = 0;
   for (let i=Math.max(1,Math.floor(40/bh)); i<=Math.ceil(140/bh); i++){ e += beatByte[i]; cnt++; }
-  if(AUDIO.ready) clockFrame(now);
+  if(AUDIO.ready){
+    // Keep the analyser's power, flux and kick history fresh for its entrance/gap routes.
+    F.dropKickNow=hitStep(HIT.low,beatByte,bh,now);
+    hitStep(HIT.mid,beatByte,bh,now);
+    clockFrame(now);
+  }
   else F.beatNow = tapAssist(DBG && DBG.algo === 'old' ? detectBeat(e/cnt/255, now) : detectBeats(beatByte, bh, now), now);
   if (DBG && !DBG.first){ let mx = 0; for (let i = 0; i < 40; i++) if (beatByte[i] > mx) mx = beatByte[i]; if (mx > 64) DBG.first = now; }
   if (DBG && DBG.rec) DBG.rec.push([audioEl ? audioEl.currentTime : -1, now, Array.from(beatByte.subarray(0, 110))]);
@@ -2756,8 +2767,13 @@ function lyricSimilarity(a,b){
   a=lyricNorm(a);b=lyricNorm(b);if(!a || !b)return 0;if(a===b)return 1;
   const x=new Set(a.split(' ')),y=new Set(b.split(' '));return 2*[...x].filter(w=>y.has(w)).length/(x.size+y.size);
 }
+function cleanLyricTitle(value){
+  return String(value || '').replace(/\s*[([](?:feat|ft|with|prod)\.?[^)\]]*[)\]]/gi,'')
+    .replace(/\s*[-–—]\s*(?:single|ep|remaster(?:ed)?)(?:\s*\(?\d{4}\)?)?\s*$/i,'')
+    .replace(/\([^)]*\)|\[[^\]]*\]/g,'').trim();
+}
 function lyricMatchScore(song, hit, duration){
-  const title=lyricSimilarity(song.title,hit.trackName), artist=song.artist?lyricSimilarity(song.artist,hit.artistName):1;
+  const title=lyricSimilarity(cleanLyricTitle(song.title),cleanLyricTitle(hit.trackName)), artist=song.artist?lyricSimilarity(song.artist,hit.artistName):1;
   if(title<0.65 || artist<0.5)return -1;
   const versions=t=>(lyricNorm(t).match(/\b(live|remix|acoustic|instrumental|sped|slowed|karaoke)\b/g)||[]).sort().join(' ');
   if(versions(song.title)!==versions(hit.trackName))return -1;
@@ -2825,7 +2841,7 @@ function wordAtRaw(ly, words){   // which word of the line is being sung: exact 
     const t0 = wt[wi], t1 = wi + 1 < wt.length ? wt[wi + 1] : Math.max(t0 + 0.35, ly.end);
     return { wi, frac: clamp((ly.pos - t0)/Math.max(0.05, t1 - t0), 0, 1), dur: (t1 - t0)*1000, timed: true };
   }
-  const wts = words.map(w => syl(w) + 0.35), tot = wts.reduce((a, b) => a + b, 0), span = Math.max(0.3, ly.end - ly.start); // Estimates use the whole line, including held vocals.
+  const wts = words.map(w => syl(w) + 0.35), tot = wts.reduce((a, b) => a + b, 0), span = Math.max(0.3, Math.min((ly.end - ly.start)*0.75, tot*0.22));
   const e = clamp((ly.pos - ly.start)/span, 0, 0.9999)*tot; let acc = 0;
   for (let q = 0; q < wts.length; q++){ if (e < acc + wts[q]) return heardWord(ly, words, { wi: q, frac: (e - acc)/wts[q], dur: wts[q]/tot*span*1000, timed: false }); acc += wts[q]; }
   return heardWord(ly, words, { wi: words.length - 1, frac: 1, dur: 300, timed: false });
@@ -2841,8 +2857,8 @@ function aplOn(){ return settings.lyrics && linkedActive() && APL.lines.length >
 function lyricLine(){   // the synced line being sung now: { i, cur, next, start, end }
   if (!settings.lyrics) return null;
   if (attOn()){   // Apple's own word-timed lyrics + the exact playback position: the most precise source
-    const L = ATT.lines, pos = songPos() + lyricOffset();
-    let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos) i = q; else break; }
+    const L = ATT.lines, pos = songPos() + lyricOffset() - 0.15;
+    let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos + 0.1) i = q; else break; }
     const nxt = L.slice(i + 1).find(x => x.s), end = i + 1 < L.length ? L[i + 1].t : (i >= 0 ? L[i].t + 5 : 0);
     return { i, pos, L, cur: i >= 0 ? L[i] : null, next: nxt || null, start: i >= 0 ? L[i].t : 0, end };
   }
@@ -2853,8 +2869,8 @@ function lyricLine(){   // the synced line being sung now: { i, cur, next, start
   }
   lyricsNow(); const L = LYR.sync, p0 = songPos();
   if (!L || !L.length || p0 === null) return null;
-  const pos = p0 + lyricOffset();   // your timing nudge (the default leans a little early)
-  let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos) i = q; else break; }
+  const pos = p0 + lyricOffset() - 0.15;   // your timing nudge (the default leans a little early)
+  let i = -1; for (let q = 0; q < L.length; q++){ if (L[q].t <= pos + 0.15) i = q; else break; }
   const nxt = L.slice(i + 1).find(x => x.s), end = i + 1 < L.length ? L[i + 1].t : (i >= 0 ? L[i].t + 5 : 0);
   return { i, pos, L, cur: i >= 0 ? L[i] : null, next: nxt || null, start: i >= 0 ? L[i].t : 0, end };
 }
@@ -2874,8 +2890,7 @@ function lyricsNow(){
     LYR.key = key; LYR.text = ''; LYR.sync = null; LYR.state = 'loading'; LYR.song = s.title + (s.artist ? ' by ' + s.artist : '');
     const offset=$('#lyrOff');if(offset){offset.value=lyricOffset();offset.dispatchEvent(new Event('change'));}
     const status=$('#lyricTimingStatus');if(status)status.textContent='Searching lyrics…';
-    const clean = t => t.replace(/\s*[\(\[](feat|ft|with|prod)\.?[^\)\]]*[\)\]]/gi, '').replace(/\s*-\s*(single|ep|remaster(ed)?( \d{4})?)$/i, '').trim();
-    const q = (clean(s.title) + ' ' + s.artist.split(/,|&| x | feat/i)[0]).trim();
+    const q = (cleanLyricTitle(s.title) + ' ' + s.artist.split(/,|&| x | feat/i)[0]).trim();
     const go = (tries) => fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(q), { signal: controller.signal })
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(list => {
         if (LYR.key !== key || !Array.isArray(list)) return;
@@ -3605,15 +3620,22 @@ const DRAW = { orbit:drawOrbit, ridge:drawRidge, spectrum:drawSpectrum, scope:dr
    Songs with next to no low end never drop, and a pause (2.5 s of silence) wipes the memory, so pressing play
    again isn't a drop. A big boom in the middle of a song can't trigger it: there has to be a dip, a gap or a
    quiet stretch first. */
-const dropSt = { blocks: new Float32Array(120), peaks: new Float32Array(120), pk: -200, bi: 0, bn: 0, acc: 0, accN: 0, blockT: 0, last: 0, prevKick: 0, kref: 0, quietT: 0 };
-function resetDrop(){ dropSt.bi = dropSt.bn = 0; dropSt.acc = dropSt.accN = 0; dropSt.pk = -200; dropSt.blockT = 0; dropSt.last = 0; dropSt.prevKick = 0; dropSt.kref = 0; dropSt.quietT = 0; }
+const dropSt = { blocks: new Float32Array(120), peaks: new Float32Array(120), pk: -200, bi: 0, bn: 0, acc: 0, accN: 0, blockT: 0, last: -Infinity, prevKick: 0, kref: 0, quietT: 0 };
+function resetDrop(){ dropSt.bi = dropSt.bn = 0; dropSt.acc = dropSt.accN = 0; dropSt.pk = -200; dropSt.blockT = 0; dropSt.last = -Infinity; dropSt.prevKick = 0; dropSt.kref = 0; dropSt.quietT = 0; }
+function fireDrop(now,strength,reason){
+  // Both detectors share the same visual event and eight-second cooldown.
+  if(now-dropSt.last<=8000)return false;
+  dropSt.last=now;F.drop=1;F.dropNow=true;F.dropStrength=strength;
+  if(DBG){(DBG.drops=DBG.drops||[]).push(now);(DBG.why=DBG.why||[]).push(reason);}
+  return true;
+}
 function detectDrop(now){
-  if (!F.live){ F.drop *= Math.pow(0.94, frameScale); return; }
+  if (!F.live) return;
   const L = HIT.low.prevL, db = 10*Math.log10(L + 1e-9);
   // paused or between tracks: 2.5 s of near silence (nothing in the lows or mids) wipes the memory
   if (L < 1e-6 && HIT.mid.prevL < 1e-6){
     if (!dropSt.quietT) dropSt.quietT = now;
-    else if (now - dropSt.quietT > 2500){ resetDrop(); F.drop *= Math.pow(0.94, frameScale); return; }
+    else if (now - dropSt.quietT > 2500){ resetDrop(); return; }
   } else dropSt.quietT = 0;
   dropSt.acc += L; dropSt.accN++;
   if (!dropSt.blockT) dropSt.blockT = now;
@@ -3624,7 +3646,7 @@ function detectDrop(now){
   }
   // only strong kick-layer hits count as real kicks here (bass note changes in a breakdown are much weaker)
   let strongKick = false;
-  if (F.kickNow){
+  if (AUDIO.ready ? F.dropKickNow : F.kickNow){
     const fl = HIT.low.lastFlux || 0;
     strongKick = !dropSt.kref || fl >= 0.25*dropSt.kref;
     if (strongKick) dropSt.kref = dropSt.kref ? dropSt.kref*0.8 + fl*0.2 : fl;
@@ -3637,12 +3659,13 @@ function detectDrop(now){
     const hasBass = loud > -52;   // songs with next to no low end can't dip (tiny wobbles in near-silence aren't drops)
     // 1. dip, then back. The dip has to be 8 dB plus however much this song's low end normally wobbles (normal loud
     //    vs the middle of the pack, up to 4 dB more): chord changes in acoustic songs already swing it 6-8 dB
-    const need = 8 + clamp(loud - sorted[sorted.length >> 1], 0, 4);
+    const sensitivity = clamp(settings.dropSensitivity,0.5,1.5);
+    const need = (8 + clamp(loud - sorted[sorted.length >> 1], 0, 4))/sensitivity;
     if (hasBass && recentMax <= loud - need && db >= loud - 4){ fire = true; if (DBG) DBG.dropWhy = 'dip ' + (loud - recentMax).toFixed(1) + ' dB (needed ' + need.toFixed(1) + ')'; }
     // 2. kick gap: a steady kick (on the beat grid) stopped for 3+ beats and just came back at full level,
     //    e.g. a breakdown where only the drums drop out and the bass keeps going
     const P = TEMPO.bpm ? 60000/TEMPO.bpm : 500;
-    if (!fire && hasBass && strongKick && dropSt.prevKick && now - dropSt.prevKick >= Math.max(2500, 3*P) && db >= loud - 4){
+    if (!fire && hasBass && strongKick && dropSt.prevKick && now - dropSt.prevKick >= Math.max(2500, 3*P)/sensitivity && db >= loud - 4){
       // was the kick steady in the 8 s before it stopped? Its hits should line up on a 16th-note grid. The grid is
       // fitted to the hits (tempo nudged up to 1.5% either way): a BPM reading just 0.5% off makes a fixed grid drift
       // a third of a 16th over 8 s, and then a dead-steady kick looks sloppy (that was missing real drops).
@@ -3656,19 +3679,18 @@ function detectDrop(now){
       // the gap must be at least 3x the song's normal kick spacing, so one missed or soft kick can't fake it
       const iv = []; for (let k = 1; k < before.length; k++) iv.push(before[k] - before[k - 1]); iv.sort((x, y) => x - y);
       const usual = iv.length ? iv[iv.length >> 1] : P;
-      if (before.length >= 6 && before.length*P/8000 >= 0.5 && steady >= 0.6 && now - dropSt.prevKick >= 3*usual){ fire = true; if (DBG) DBG.dropWhy = 'kick gap ' + Math.round(now - dropSt.prevKick) + ' ms, steady ' + steady.toFixed(2) + ', kicks/beat ' + (before.length*P/8000).toFixed(2) + ', frame ' + (db - loud).toFixed(1) + ' dB vs loud'; }
+      if (before.length >= 6 && before.length*P/8000 >= 0.5 && steady >= 0.6 && now - dropSt.prevKick >= 3*usual/sensitivity){ fire = true; if (DBG) DBG.dropWhy = 'kick gap ' + Math.round(now - dropSt.prevKick) + ' ms, steady ' + steady.toFixed(2) + ', kicks/beat ' + (before.length*P/8000).toFixed(2) + ', frame ' + (db - loud).toFixed(1) + ' dB vs loud'; }
     }
     // 3. entrance: the low end jumps 12 dB past normal loud AND 4 dB past the loudest single moment of the last 30 s
     //    (risers and snare rolls included), e.g. the first drop after a quiet intro. The same kick hitting again
     //    lands within about 1 dB of its own earlier peaks, however sparse the song, so normal kicks never count.
     let peak = dropSt.pk; for (let k = 0; k < dropSt.bn; k++) if (dropSt.peaks[k] > peak) peak = dropSt.peaks[k];
-    if (!fire && db >= -46 && db >= loud + 12 && db >= peak + 4){ fire = true; if (DBG) DBG.dropWhy = 'entrance ' + (db - loud).toFixed(1) + ' dB over loud, ' + (db - peak).toFixed(1) + ' over peak'; }
+    if (!fire && db >= -46 && db >= loud + 12/sensitivity && db >= peak + 4/sensitivity){ fire = true; if (DBG) DBG.dropWhy = 'entrance ' + (db - loud).toFixed(1) + ' dB over loud, ' + (db - peak).toFixed(1) + ' over peak'; }
     if (DBG) DBG.dropState = { loud, db, recentMax };
   }
   if (strongKick) dropSt.prevKick = now;
   if (db > dropSt.pk) dropSt.pk = db;   // after the checks, so a frame is never compared with itself
-  if (fire){ dropSt.last = now; F.drop = 1; F.dropNow=true; F.dropStrength=1; if (DBG){ (DBG.drops = DBG.drops || []).push(now); (DBG.why = DBG.why || []).push(DBG.dropWhy); } }
-  else F.drop *= Math.pow(0.94, frameScale);
+  if (fire) fireDrop(now,1,DBG && DBG.dropWhy || 'analyser');
 }
 
 /* ---------- effects, applied as the scene is copied to the screen ---------- */
@@ -3779,11 +3801,12 @@ let lastFrameMs = 0, frameScale = 1;
 function frame(ms){
   const t = ms/1000; T = t; const fdt = lastFrameMs ? Math.min(100, ms - lastFrameMs) : 16.7; lastFrameMs = ms; frameScale = fdt/(1000/60);
   F.dropNow=false;
+  F.drop *= Math.pow(0.94, frameScale);
   if (F.live && AC) analyzeLive(ms); else analyzePreview(t);
   F.beat = F.beatNow ? 1 : F.beat*Math.pow(0.9, fdt/16.7);
   { const dk = Math.pow(0.88, fdt/16.7); F.kickEnv = F.kickNow ? 1 : F.kickEnv*dk; F.snareEnv = F.snareNow ? 1 : F.snareEnv*dk; F.hatEnv = F.hatNow ? 1 : F.hatEnv*dk; }
   if (DBG) DBG.frames = (DBG.frames || 0) + 1;
-  if(!F.live || !AUDIO.ready) detectDrop(ms);
+  detectDrop(ms);
   autoTick(ms);
   const ease = 1 - Math.pow(0.92, frameScale);
   area.top += (target.top - area.top)*ease; area.bottom += (target.bottom - area.bottom)*ease;

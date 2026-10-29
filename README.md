@@ -63,17 +63,20 @@ Capture regression checks use synthetic MediaStreams, and lyric requests use fix
 
 ## Audio timing and lyric matching
 
-Supported browsers capture fixed 512-sample audio blocks in an AudioWorklet and analyze them in a worker. Tempo confidence and a predictive beat grid are separate from kick, snare and hi-hat events. Silence, seeking and source changes reset tracking; browsers without worklet support keep the original analyser fallback. Beat tracking still needs several beats to settle, and syncopated or changing-tempo music can remain uncertain.
+Supported browsers capture fixed 512-sample audio blocks in an AudioWorklet and analyze them in a worker. Tempo confidence and a predictive beat grid are separate from kick, snare and hi-hat events. Silence, seeking and source changes reset tracking; browsers without worklet support and single-file builds with an inline script keep the original analyser fallback. Only an external HTTP(S) app script enables loading the audio assets. Beat tracking still needs several beats to settle, and syncopated or changing-tempo music can remain uncertain.
 
-Drop detection combines a sustained energy/bass breakdown with the return of energy, drums and spectral change. **Drop sensitivity** changes the detection threshold; **Drop impact** changes the global flash/shake strength. Reduced-motion and reduced-flash settings remain respected. This detector is best suited to breakdown-and-return drops, not every musical transition.
+Drop detection combines a sustained energy/bass breakdown with the return of energy, drums and spectral change. **Drop sensitivity** changes the detection threshold; **Drop impact** changes the global flash/shake strength. Reduced-motion and reduced-flash settings remain respected. The original analyser detector also stays active for breakdowns, kick gaps and quiet-intro entrances. Both detectors share an eight-second cooldown, and the drop envelope decays once per frame.
 
-LRCLIB results are ranked by title, artist, version and available track duration. Weak matches are left unselected. **Lyrics version** lets you choose another result; the choice and timing offset are remembered per title/artist in this browser (up to 100 songs). Exact word timestamps take priority. Line-only lyrics use estimated progress across the whole line and say so in Settings. Experimental voice listening only nudges progress within the estimated word, by at most 180 ms; it does not transcribe vocals.
+LRCLIB results are ranked by title, artist, version and available track duration. Weak matches are left unselected. **Lyrics version** lets you choose another result; the choice and timing offset are remembered per title/artist in this browser (up to 100 songs). Exact word timestamps take priority. Line-only lyrics retain the compressed timing estimate and early bias used to reduce karaoke lag, and are labeled estimated in Settings. Featured credits and bracketed subtitles are removed for title similarity, while version markers still reject live/remix mismatches. Experimental voice listening only nudges progress within the estimated word, by at most 180 ms; it does not transcribe vocals.
 
 Additional tests are separate from the existing browser checks:
 
 ```sh
 npm run test:audio
 npm run test:audio-browser
+npm run test:pr2
 ```
 
 The first covers synthetic tempo, missing beats, silence, breakdown drops, PCM analysis at 44.1/48 kHz, lyric matching and timing. The second runs the real worklet/worker in Chromium and checks seek resets, version selection, persisted lyric preferences and mobile settings. `npm start` serves the new audio assets; `tests/server.cjs` remains the original isolated browser-fixture server.
+
+`test:pr2` checks title extras and version rejection, restored karaoke timing, an entirely inline build (75 modes and analyser fallback), and 40-second synthetic audio fixtures for breakdown returns, quiet-intro entrances and a steady loop. It also verifies the shared drop cooldown. All browser tests use Chromium.

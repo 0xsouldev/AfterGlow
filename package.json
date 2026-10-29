@@ -8,7 +8,8 @@
     "test:chromium": "node tests/browser.cjs chromium",
     "check": "node --check assets/app.js && node --check tests/browser.cjs",
     "test:audio": "node tests/audio-analysis.cjs",
-    "test:audio-browser": "node tests/audio-browser.cjs"
+    "test:audio-browser": "node tests/audio-browser.cjs",
+    "test:pr2": "node tests/pr2-regressions.cjs"
   },
   "devDependencies": {
     "playwright": "1.56.1"

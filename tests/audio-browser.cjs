@@ -5,7 +5,8 @@ function wav(){const rate=48000,n=rate*24,b=Buffer.alloc(44+n*2);b.write('RIFF')
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{const u=route.request().url();if(u.startsWith(url+'/assets/app.js')){const text=fs.readFileSync(require.resolve('../assets/app.js'),'utf8').replace(/\}\)\(\);\s*$/,`window.audioTest={AUDIO,LYR,settings,lyricOffset,resetLyrics,lyricsNow,getAudio:()=>audioEl};})();`);return route.fulfill({contentType:'text/javascript',body:text});}if(u.startsWith(url))return route.continue();if(u.startsWith('https://lrclib.net/'))return route.fulfill({json:[{id:1,trackName:'One Song (Live)',artistName:'Artist',duration:24,syncedLyrics:'[00:00] Wrong version'},{id:2,trackName:'One Song',artistName:'Artist',duration:24,syncedLyrics:'[00:00] Hold this note now\n[00:10] Second phrase'}]});return route.abort();});
  await page.goto(url+'/#debug');await page.locator('#fileInput').setInputFiles(wav());
- await page.waitForFunction(()=>window.__ag.audio?.confidence>.6 && window.__ag.audio?.bpm>110,{},{timeout:20000});
+ // A first tempo candidate is provisional; assert once the tracker has settled.
+ await page.waitForFunction(()=>window.__ag.audio?.confidence>.9 && Math.abs(window.__ag.audio?.bpm-120)<3,{},{timeout:20000});
  const analysis=await page.evaluate(()=>window.__ag.audio);assert.ok(Math.abs(analysis.bpm-120)<3);assert.equal(analysis.mode,'audio-clock');
  await page.evaluate(()=>{const end=performance.now()+400;while(performance.now()<end){};});await page.waitForFunction(t=>window.__ag.audio.time>t+.4 && window.__ag.audio.confidence>.6,analysis.time);assert.ok(Math.abs((await page.evaluate(()=>window.__ag.audio.bpm))-120)<3);
  await page.evaluate(()=>audioTest.lyricsNow());await page.waitForFunction(()=>audioTest.LYR.state==='synced');assert.equal(await page.evaluate(()=>audioTest.LYR.sync[0].s),'Hold this note now');

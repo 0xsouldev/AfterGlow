@@ -30,6 +30,6 @@ context.clamp=(x,a,b)=>Math.min(b,Math.max(a,x));context.heardWord=(_ly,_words,x
 vm.runInContext(app.slice(app.indexOf('function syl('),app.indexOf('const WLOCK')),context);
 vm.runInContext(app.slice(app.indexOf('function wordAtRaw('),app.indexOf('function typedSoFar(')),context);
 const words=['hold','this','note','now'];
-assert.ok(context.wordAtRaw({cur:{},start:0,end:10,pos:3},words).wi<3,'line estimate must not finish early');
+assert.equal(context.wordAtRaw({cur:{},start:0,end:10,pos:3},words).wi,3,'restore the compressed estimate that avoids karaoke lag');
 assert.equal(context.wordAtRaw({cur:{wt:[0,2,7,9]},start:0,end:10,pos:8},words).wi,2);
 console.log('PASS audio tempo, missing beats, silence, reset, contextual drops, PCM at 44.1/48kHz, lyric matching and timing');
