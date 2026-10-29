@@ -115,6 +115,9 @@
   <div class="sset">
     <div class="tog"><span><b>Reduce flashes</b><em>Disable full-screen drop flashes and VHS glitches</em></span><button class="btn togb" data-tog="reduceFlashes" aria-pressed="false">Off</button></div>
     <div class="tog"><label for="quality"><b>Render quality</b><em>Lower resolution saves battery on dense screens</em></label><select id="quality"><option value="high">High</option><option value="balanced">Balanced</option><option value="low">Low</option></select></div>
+    <p class="shint" id="trackingStatus" aria-live="off">Waiting for audio</p>
+    <div class="tog"><label for="dropSensitivity"><b>Drop sensitivity</b><em>How much evidence is needed for a drop</em></label><input id="dropSensitivity" type="range" min="0.5" max="1.5" step="0.05" value="1"></div>
+    <div class="tog"><label for="dropImpact"><b>Drop impact</b><em>Strength of screen shake and flash</em></label><input id="dropImpact" type="range" min="0.5" max="1.5" step="0.05" value="1"></div>
     <div class="tog"><span><b>Auto level</b><em>Quiet and loud songs hit about equally hard</em></span><button class="btn togb" data-tog="agc" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Smooth transitions</b><em>Crossfade when the mode changes</em></span><button class="btn togb" data-tog="xfade" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Auto switches on drops</b><em>Jump to a new mode the moment a drop hits</em></span><button class="btn togb" data-tog="autoDrop" aria-pressed="true">On</button></div>
@@ -157,8 +160,11 @@
     <p class="shint">Shows on Classic Bars, the Vinyl label, Particle Text, the LED Board, Neon Sign, Laptop, Karaoke Ball, the lyric modes and Marching Band. Leave it empty for Afterglow.</p>
     <div class="tog"><span><b>Use the song name</b><em>Use the file's song name, or the Apple Music link's song name while tab or system audio is selected.</em></span><button class="btn togb" data-tog="songText" aria-pressed="false">Off</button></div>
     <div class="tog"><span><b>Look up lyrics</b><em>Looks up the playing song's lyrics on LRCLIB, a free lyrics database, and types them out. Needs the song name (a file, or the Apple Music link) and an internet connection; falls back to your text.</em></span><button class="btn togb" data-tog="lyrics" aria-pressed="true">On</button></div>
+    <label for="lyricMatch">Lyrics version</label>
+    <select id="lyricMatch" aria-describedby="lyricTimingStatus" style="width:100%;max-width:100%" disabled><option value="">Automatic matching</option></select>
+    <p class="hint" id="lyricTimingStatus" aria-live="polite">Waiting for song information</p>
     <div class="tog"><span><b>Lyrics timing</b><em id="lyrOffTxt"></em></span><input type="range" id="lyrOff" min="-1" max="2" step="0.05" aria-label="Lyrics timing"></div>
-    <div class="tog"><span><b>Listen for the singing</b><em>Experimental. Hears each new syllable in the voice range and moves the karaoke ball to it, within the current line. Only used when the lyrics have no exact word times. Drums, backing vocals and ad-libs can fool it.</em></span><button class="btn togb" data-tog="listen" aria-pressed="false">Off</button></div>
+    <div class="tog"><span><b>Listen for the singing</b><em>Experimental. Uses voice-range pulses to gently nudge estimated lyric progress. Only used without exact word timestamps. Drums, backing vocals and ad-libs can fool it.</em></span><button class="btn togb" data-tog="listen" aria-pressed="false">Off</button></div>
     <label class="shead" style="margin-top:14px;display:block">Apple Music link</label>
     <a class="btn" id="bmLink" href="#" draggable="true" style="display:inline-flex;margin-top:6px">♪ Afterglow link</a>
     <a class="btn" id="bmInspect" href="#" draggable="true" style="display:inline-flex;margin-top:6px;margin-left:6px">🔍 Lyrics inspector</a>
