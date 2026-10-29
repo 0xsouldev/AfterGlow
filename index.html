@@ -121,6 +121,7 @@
     <div class="tog"><span><b>Auto level</b><em>Quiet and loud songs hit about equally hard</em></span><button class="btn togb" data-tog="agc" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Smooth transitions</b><em>Crossfade when the mode changes</em></span><button class="btn togb" data-tog="xfade" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Auto switches on drops</b><em>Jump to a new mode the moment a drop hits</em></span><button class="btn togb" data-tog="autoDrop" aria-pressed="true">On</button></div>
+    <div class="tog"><span><b>Match the song's energy</b><em>Auto picks chill modes for calm parts and wild ones when the song is going off. <span id="energyNow">Now: waiting for audio</span></em></span><button class="btn togb" data-tog="autoEnergy" aria-pressed="true">On</button></div>
   </div>
   <div class="sset">
     <div class="shead">Beat follows</div>
@@ -169,6 +170,7 @@
     <a class="btn" id="bmLink" href="#" draggable="true" style="display:inline-flex;margin-top:6px">♪ Afterglow link</a>
     <a class="btn" id="bmInspect" href="#" draggable="true" style="display:inline-flex;margin-top:6px;margin-left:6px">🔍 Lyrics inspector</a>
     <p class="shint" id="bmHint">Drag this button to your bookmarks bar. On the Apple Music tab, click that bookmark: it opens Afterglow and keeps sending it the song name. Then pick <em>Tab or system</em> here and share the Apple Music tab. Needs "Use the song name" on.</p>
+    <p class="shint" id="linkStatus" style="white-space:pre-line">⚪ Link: not connected yet (click the bookmark on the Apple Music tab)</p>
   </div>
 </aside>
 

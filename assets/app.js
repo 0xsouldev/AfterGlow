@@ -24,7 +24,7 @@ const PAL_KEYS = Object.keys(PALETTES);
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', spectrum:'Spectrum', scope:'Scope', warp:'Warp', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', lava:'Lava', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', sphere:'Sphere', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', ripples:'Ripples', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', bubbles:'Bubbles', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', snake:'Snake', domino:'Domino Run', glass:'Shattered Glass', slots:'Slot Machine', neon:'Neon Sign', pinball:'Pinball', mosh:'Moshpit', seismo:'Seismograph', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke Ball', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 const MODES = Object.keys(MODE_NAMES);
 
-const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
+const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, autoEnergy:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
 try {
   const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -44,7 +44,7 @@ try {
     if (typeof s.text === 'string') settings.text = s.text.slice(0, 24);
     if (typeof s.lyrOff === 'number' && isFinite(s.lyrOff)) settings.lyrOff = clamp(s.lyrOff, -1, 2);
     if ([2, 4, 8].includes(s.cymEvery)) settings.cymEvery = s.cymEvery;
-    for (const k of ['agc', 'xfade', 'autoDrop', 'songText', 'lyrics', 'listen']) if (typeof s[k] === 'boolean') settings[k] = s[k];
+    for (const k of ['agc', 'xfade', 'autoDrop', 'autoEnergy', 'songText', 'lyrics', 'listen']) if (typeof s[k] === 'boolean') settings[k] = s[k];
     if (['auto', 'kick', 'snare', 'all'].includes(s.beatSrc)) settings.beatSrc = s.beatSrc;
     if (s.fx && typeof s.fx === 'object') settings.fx = { drops: s.fx.drops !== false, vhs: s.fx.vhs === true, mirror: [0, 2, 4].includes(s.fx.mirror) ? s.fx.mirror : 0, glow: s.fx.glow === true };
   }
@@ -1284,6 +1284,7 @@ window.addEventListener('message', e => {   // Only accept the expected song/lyr
   if (t !== linkedSong) { if(current && current.kind==='display')resetBeat(); APL.lines = []; APL.i = -1; APL.avg = 3.5; ATT.ok = false; }
   if (t !== linkedSong && settings.songText && current && current.kind === 'display') toast('Now playing: ' + t, 2200);
   linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
+  LINK.via = d.via === 'live' ? 'live' : 'built-in';
   LINK.v = Number(d.v) || 1; if (LINK.v < 6 && !LINK.warned){ LINK.warned = true; toast('Your Afterglow link bookmark is out of date. Hard refresh this page and drag a fresh one from Settings.', 6000); }
   APL.dbg = typeof d.dbg === 'string' ? d.dbg.slice(0, 200) : ''; APL.how = APL.dbg.startsWith('how:') ? APL.dbg.slice(4) : ''; if (APL.how) APL.dbg = '';
   if (d.lyr && typeof d.lyr === 'object'){
@@ -1316,7 +1317,7 @@ const tip=document.createElement('div');tip.textContent=(ok?'Copied! ':'Select a
   return 'javascript:' + encodeURIComponent(code);
 }
 function bookmarkletFor(url){   // runs on the Apple Music tab: opens Afterglow, then twice a second sends the song name, where the song is up to and, if the lyrics view is open, its lines and which one is highlighted
-  const code = `(()=>{const U=${JSON.stringify(url)},O=new URL(U).origin;let w=window.__agW;if(!w||w.closed){w=window.open('','afterglow');let fresh=false;try{fresh=w.location.href==='about:blank';}catch(x){}if(fresh)w.location.href=U;window.__agW=w;}clearInterval(window.__agT);let box=null,sig='',n=0;
+  const code = `(()=>{const U=${url === null ? 'window.__agU' : JSON.stringify(url)},O=new URL(U).origin;let w=window.__agW;if(!w||w.closed){w=window.open('','afterglow');let fresh=false;try{fresh=w.location.href==='about:blank';}catch(x){}if(fresh)w.location.href=U;window.__agW=w;}clearInterval(window.__agT);let box=null,sig='',n=0;
 const cls=e=>(typeof e.className==='string'?e.className:(e.getAttribute&&e.getAttribute('class'))||'');
 const deep=r=>{const out=[];const go=x=>{for(const el of x.querySelectorAll('*')){out.push(el);if(el.shadowRoot)go(el.shadowRoot);}};go(r);return out;};
 const txt=e=>(e.innerText||e.textContent||'').replace(/\\s+/g,' ').trim();
@@ -1351,8 +1352,12 @@ if(p===null){const el=[...document.querySelectorAll('audio,video')].find(x=>x.cu
 if(!t){t=document.title.replace(/\\s*[-–—|]\\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}
 let lyr=null,dbg='';try{if(!box||!box.L.length||!box.L[0].isConnected||n%6===0)box=findLines();dbg=box.dbg;if(box.L.length){if(!lineCache||lineCacheN!==box.L.length||n%10===0){lineCache=box.L.map(e=>e.tagName==='AMP-LYRICS-DISPLAY-INSTRUMENTAL-LINE'?'':lineTxt(e));lineCacheN=box.L.length;}const lines=lineCache;const [ai,how]=activeOf(box.L);if(ai<0)dbg='found '+box.L.length+' lines but no highlight (attributes on a line: '+box.L[0].getAttributeNames().join(',')+')';else dbg='how:'+how;const s2=lines.join('\\n');lyr={i:ai,lines:(s2!==sig||n%10===0)?lines:null};sig=s2;}}catch(e){dbg='lyrics error: '+e.message;}
 const tsend=ttml&&(n%20===1||ttml.sent!==ttml.id)?(ttml.sent=ttml.id,{id:ttml.id,kind:ttml.kind,lines:ttml.lines}):null;
-if(t)w.postMessage({afterglow:'song',v:6,ttml:tsend,ttmlOk:!!ttml,ttmlDbg,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,lyr,dbg},O);};send();window.__agT=setInterval(send,100);})()`;
-  return 'javascript:' + encodeURIComponent(code);
+if(t)w.postMessage({afterglow:'song',v:6,ttml:tsend,ttmlOk:!!ttml,ttmlDbg,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,lyr,dbg,via:window.__agVia||'built-in'},O);};send();window.__agT=setInterval(send,100);})()`;
+  if (url === null) return code;   // used by tools/gen-apple-link.cjs to write assets/apple-link.js
+  // Self-updating: the bookmark first loads the latest link code from this site (assets/apple-link.js). If Apple Music
+  // blocks outside scripts, or it doesn't load within 2.5 s, it runs the copy built into the bookmark instead
+  const loader = `(()=>{const U=${JSON.stringify(url)};window.__agU=U;window.__agOK=false;let done=false;const fb=()=>{if(done||window.__agOK)return;done=true;window.__agVia='built-in';${code}};try{const s=document.createElement('script');s.src=new URL('assets/apple-link.js?t='+Date.now(),U).href;s.onerror=fb;s.onload=()=>setTimeout(fb,50);(document.head||document.documentElement).appendChild(s);setTimeout(fb,2500);}catch(e){fb();}})()`;
+  return 'javascript:' + encodeURIComponent(loader);
 }
 function brandText(){ return textSource() || 'Afterglow'; }
 function brandInitials(){
@@ -3744,9 +3749,41 @@ function startXfade(){
 /* auto: switch modes every 8, 16 or 32 beats (or after a time-out if there's no clear beat).
    Shuffle-bag: every mode in the playlist plays once before any mode repeats. */
 let autoSince = 0, autoBeats = 0, autoBag = [];
+// Song energy: how hard the music is going right now, from how busy the drums are, how heavy the bass is, how bright
+// the top end is and the tempo, smoothed over a few seconds. Auto uses it to pick chill modes for calm parts and
+// wild ones when it's going off
+const NRG = { ev: [], v: 0.45, tier: 'mid', last: 0 };
+const ENERGY_MODES = {
+  calm: ['aurora','ink','lava','galaxy','koi','jelly','bubbles','sunflower','tree','topo','pendulum','mandala','ripples','fairy','flag','origami','chrome','sphere','vinyl','hifi','cymatics','dna','slinky','crawl','orbit','ridge','kaleido'],
+  high: ['fireworks','lightning','mosh','hyper','warp','lasers','trip','tunnel','fire','glass','invaders','pads','floor','blocks','sub','step','bounce','highway','ninja','kinetic','city','synth','pinball','march','slots','domino','strings'],
+};
+function modeTier(m){ return ENERGY_MODES.calm.includes(m) ? 'calm' : ENERGY_MODES.high.includes(m) ? 'high' : 'mid'; }
+function updateEnergy(now){
+  const dt = NRG.last ? Math.min(200, now - NRG.last) : 16; NRG.last = now;
+  if (!F.live) return;
+  if (F.kickNow) NRG.ev.push(now); if (F.snareNow) NRG.ev.push(now); if (F.hatNow) NRG.ev.push(now);
+  while (NRG.ev.length && now - NRG.ev[0] > 4000) NRG.ev.shift();
+  // hits only count as drums when there's a steady beat behind them (a wobbling pad can fake onsets)
+  const conf = AUDIO.ready && AUDIO.latest ? AUDIO.latest.confidence : TEMPO.bpm ? 0.7 : 0.2;
+  const density = clamp(NRG.ev.length/4/6, 0, 1)*clamp((conf - 0.25)/0.35, 0, 1), bpm = TEMPO.bpm || 0, tempo = bpm && density > 0.15 ? clamp((bpm - 70)/80, 0, 1) : 0;
+  // drums carry most of it: auto level lifts quiet songs, so bass and brightness alone can't make a song read as intense
+  const raw = F.db < -58 ? 0 : 0.5*density + 0.2*clamp(F.bass*1.4, 0, 1)*(0.4 + 0.6*density) + 0.1*clamp(F.high*2.5, 0, 1) + 0.2*tempo;
+  if (F.dropNow) NRG.hold = now + 8000;   // a drop is peak energy, even before the beat tracker has locked on again
+  NRG.v += ((now < (NRG.hold || 0) ? Math.max(raw, 0.75) : raw) - NRG.v)*(1 - Math.exp(-dt/(now < (NRG.hold || 0) ? 800 : 4000)));
+  NRG.tier = NRG.tier === 'calm' ? (NRG.v > 0.37 ? 'mid' : 'calm') : NRG.tier === 'high' ? (NRG.v < 0.55 ? 'mid' : 'high') : NRG.v < 0.31 ? 'calm' : NRG.v > 0.61 ? 'high' : 'mid';
+  if (DBG) DBG.energy = { v: NRG.v, tier: NRG.tier, density, bass: F.bass, high: F.high, bpm, hits: NRG.ev.length, conf };
+}
 function autoPool(){ const p = MODES.filter(m => !settings.autoSkip.includes(m)); return p.length >= 2 ? p : MODES; }
-function autoNext(){
+function autoNext(want){
   const pool = autoPool(); let m;
+  // prefer modes that suit the song's energy (a drop always wants a wild one); the bag still makes sure every mode gets played
+  const tier = want || (settings.autoEnergy && F.live ? NRG.tier : '');
+  if (tier && tier !== 'mid'){
+    if (!autoBag.length){ autoBag = pool.filter(x => x !== settings.mode); for (let i = autoBag.length - 1; i > 0; i--){ const j = (Math.random()*(i + 1))|0; const t = autoBag[i]; autoBag[i] = autoBag[j]; autoBag[j] = t; } }
+    const fit = autoBag.map((x, i) => [x, i]).filter(([x]) => x !== settings.mode && pool.includes(x) && modeTier(x) !== (tier === 'calm' ? 'high' : 'calm'));
+    const best = fit.find(([x]) => modeTier(x) === tier) || fit[0];
+    if (best){ autoBag.splice(best[1], 1); setMode(best[0]); toast(MODE_NAMES[best[0]], 1600); return; }
+  }
   do {
     if (!autoBag.length){
       autoBag = pool.filter(x => x !== settings.mode);
@@ -3764,7 +3801,7 @@ function stepMode(dir){
 function autoTick(now){
   if (!settings.auto) return;
   if (F.beatNow) autoBeats++;
-  if (settings.autoDrop && F.dropNow && autoBeats >= 4){ autoNext(); return; }   // big moment: switch right on the drop
+  if (settings.autoDrop && F.dropNow && autoBeats >= 4){ autoNext(settings.autoEnergy ? 'high' : ''); return; }   // big moment: switch right on the drop
   if ((autoBeats >= settings.autoEvery && F.beatNow) || now - autoSince > settings.autoEvery*800) autoNext();
 }
 
@@ -3784,6 +3821,18 @@ function readouts(now){
   if (beatDot){ beatDot.style.opacity = (0.15 + 0.85*F.beat).toFixed(2); beatDot.style.background = BT.src === 'mid' && settings.beatSrc === 'auto' || settings.beatSrc === 'snare' ? 'var(--accent-2)' : 'var(--accent)'; }
   for (let k=0;k<5;k++) fills[k].style.transform = 'scaleY(' + Math.max(0.05, F.meters[k]).toFixed(3) + ')';
   if (now - lastRO < 130) return; lastRO = now;
+  { const el = document.getElementById('linkStatus');   // the Apple Music link checklist in Settings, so you can see at a glance what's working
+    if (el && !el.closest('[hidden]')){
+      const on = linkedSong && performance.now() - linkedAt < 5000, sn = songNow();
+      const link = !linkedSong ? '⚪ Link: not connected yet (click the bookmark on the Apple Music tab)' : !on ? '⚪ Link: no update for a few seconds (is the Apple Music tab still open?)'
+        : LINK.v < 6 ? '⚠️ Link: old bookmark. Drag a fresh one from here' : LINK.via === 'live' ? '✅ Link: connected · auto-updating' : '✅ Link: connected · using the copy built into the bookmark (Apple blocked the auto-update)';
+      const capture = !on ? '' : current && current.kind === 'display' ? '✅ Audio: sharing a tab or screen' : '⚪ Audio: pick Tab or system and share the Apple Music tab';
+      const words = !on ? '' : attOn() ? '✅ Word timing: exact, from Apple (' + (ATT.kind === 'syllable-lyrics' ? 'per syllable' : 'per line') + ')'
+        : ATT.dbg && ATT.dbg !== 'ok' ? '⚠️ Word timing: Apple said "' + ATT.dbg + '", so words are estimated'
+        : aplOn() ? '⚪ Word timing: estimated, following the highlighted line in Apple\'s lyrics view' : LYR.state === 'synced' ? '⚪ Word timing: estimated from LRCLIB line times' : '⚪ Word timing: waiting for lyrics';
+      el.textContent = [link, on && sn ? '🎵 ' + sn.title + (sn.artist ? ' · ' + sn.artist : '') : '', capture, words].filter(Boolean).join('\n');
+    } }
+  { const en = document.getElementById('energyNow'); if (en) en.textContent = F.live ? 'Now: ' + { calm: 'calm 🌊', mid: 'medium 🎶', high: 'high energy 🔥' }[NRG.tier] + ' (' + Math.round(NRG.v*100) + '%)' : 'Now: waiting for audio'; }
   const tracking=$('#trackingStatus');if(tracking)tracking.textContent=!F.live?'Waiting for audio':AUDIO.ready && AUDIO.latest?'Beat confidence '+Math.round(AUDIO.latest.confidence*100)+'% · '+AUDIO.latest.phase:'Standard tracking';
   if (!F.live) { roLevel.textContent = '—'; roNote.textContent = '—'; roHz.textContent = 'Hz'; roBpm.textContent = '—'; return; }
   if (F.db > peakDb || now - peakT > 900) { peakDb = F.db; peakT = now; }
@@ -3807,6 +3856,7 @@ function frame(ms){
   { const dk = Math.pow(0.88, fdt/16.7); F.kickEnv = F.kickNow ? 1 : F.kickEnv*dk; F.snareEnv = F.snareNow ? 1 : F.snareEnv*dk; F.hatEnv = F.hatNow ? 1 : F.hatEnv*dk; }
   if (DBG) DBG.frames = (DBG.frames || 0) + 1;
   detectDrop(ms);
+  updateEnergy(ms);
   autoTick(ms);
   const ease = 1 - Math.pow(0.92, frameScale);
   area.top += (target.top - area.top)*ease; area.bottom += (target.bottom - area.bottom)*ease;

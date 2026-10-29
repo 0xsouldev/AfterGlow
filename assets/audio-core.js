@@ -95,7 +95,7 @@ class AudioAnalysis {
   constructor(rate){ this.rate=rate;this.size=2048;this.reset(); }
   reset(){
     this.samples=new Float32Array(this.size);this.re=new Float64Array(this.size);this.im=new Float64Array(this.size);this.previous=new Float64Array(this.size/2);
-    this.hist=[[],[],[]];this.lastHits=[-10,-10,-10];this.grid=new BeatGrid();this.drop=new DropDetector();this.count=0;this.lastTime=0;this.lastSource='';
+    this.hist=[[],[],[]];this.lastHits=[-10,-10,-10];this.grid=new BeatGrid();this.drop=new DropDetector();this.count=0;this.lastTime=0;this.lastSource='';this.on=[[],[]];this.ref=[0,0];this.pick='kick';this.cand='';this.candSince=0;
   }
   process(block,t,options={}) {
     if(this.lastTime && (t-this.lastTime>0.5 || t<this.lastTime)) this.reset(); this.lastTime=t;
@@ -123,12 +123,33 @@ class AudioAnalysis {
       h.push({t,v:flux[b]});this.hist[b]=h;
     }
     const source=options.source||'auto';
-    const selected=source==='auto'?(t-this.lastHits[0]<2?'kick':'snare'):source;
+    // Auto source: follow whichever layer (kick, snare, or both together) has been the steadiest over the last 8 s,
+    // not just "any kick lately". A new winner has to hold for 3 s before we switch, so it doesn't flip-flop.
+    for(let b=0;b<2;b++){if(hits[b])this.on[b].push({t,v:flux[b]});this.on[b]=this.on[b].filter(x=>t-x.t<8);}
+    // only the strong hits count: the onset detector also fires on kick tails and snare spill
+    const strong=(a,cut,b)=>{const top=percentile(a.map(x=>x.v),0.85),blk=block.length/this.rate;this.ref[b]=Math.max(top,this.ref[b]*Math.pow(0.5,blk/30));   // remembers how hard real hits land for ~30 s, so leftovers can't pass as hits when a layer drops out
+      return a.filter(x=>x.v>=Math.max(top,this.ref[b]*0.5)*cut).map(x=>x.t).filter((x,i,z)=>!i||x-z[i-1]>0.15);};
+    const S0=strong(this.on[0],0.45,0),S1=strong(this.on[1],0.15,1);   // kick echoes are loud, so kicks need a stricter cut
+    const regular=a=>{
+      if(a.length<5)return 0;const iv=a.slice(1).map((x,i)=>x-a[i]),m=percentile(iv,0.5);if(m<0.18||m>2)return 0;
+      let ok=0;for(const x of iv){const r=x/m,n=Math.max(1,Math.round(r));if(n<=4&&Math.abs(r-n)<0.15*n)ok++;}
+      return ok/iv.length*Math.min(1,(a.length-1)/5);
+    };
+    const both=[...S0,...S1].sort((a,b)=>a-b).filter((x,i,a)=>!i||x-a[i-1]>0.09);
+    const score={kick:regular(S0),snare:regular(S1),all:regular(both)*0.9};
+    const top=Math.max(score.kick,score.snare,score.all);
+    // Sticky on purpose: every switch restarts the beat grid. Stay on the kick until it really falls apart; only move
+    // between snare and both-together when one is clearly steadier
+    const other=this.pick==='all'?(score.snare>score.all+0.15?'snare':'all'):this.pick==='snare'?(score.all>score.snare+0.15?'all':'snare'):(score.snare>=score.all?'snare':'all');
+    const winner=this.pick==='kick'?(score.kick>=0.4||top<0.5?'kick':other):(score.kick>=0.7?'kick':top<0.25?this.pick:other);
+    if(winner===this.pick)this.cand='';else{if(!this.cand)this.candSince=t;this.cand=winner;if(t-this.candSince>=3){this.pick=winner;this.cand='';}}   // 3 s of the current pick losing (to anything) before switching
+    this.sourceScore=score;
+    const selected=source==='auto'?this.pick:source;
     if(this.lastSource && this.lastSource!==selected)this.grid.reset();this.lastSource=selected;
     const onset=selected==='kick'?hits[0]:selected==='snare'?hits[1]:(hits[0]||hits[1]);
     const grid=this.grid.update(t,onset,db>-60);
     const drop=this.drop.update(t,{db,bassDb:10*Math.log10(energy[0]+1e-12),kick:hits[0],novelty:novel/Math.max(total,1e-9)},this.grid.period,grid.confidence,options.dropSensitivity||1);
-    return {time:t,db,source:selected,kick:hits[0],snare:hits[1],hat:hits[2],...grid,drop:drop.strength,phase:drop.phase};
+    return {time:t,db,source:selected,sourceScore:this.sourceScore,kick:hits[0],snare:hits[1],hat:hits[2],...grid,drop:drop.strength,phase:drop.phase};
   }
 }
 const api={BeatGrid,DropDetector,AudioAnalysis};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.AfterglowAudio=api;

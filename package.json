@@ -6,10 +6,12 @@
     "start": "node dev-server.cjs",
     "test": "node tests/browser.cjs",
     "test:chromium": "node tests/browser.cjs chromium",
-    "check": "node --check assets/app.js && node --check tests/browser.cjs",
+    "check": "node --check assets/app.js && node --check tests/browser.cjs && node tools/gen-apple-link.cjs --check",
     "test:audio": "node tests/audio-analysis.cjs",
     "test:audio-browser": "node tests/audio-browser.cjs",
-    "test:pr2": "node tests/pr2-regressions.cjs"
+    "test:pr2": "node tests/pr2-regressions.cjs",
+    "build:link": "node tools/gen-apple-link.cjs",
+    "test:source": "node tests/source-pick.cjs"
   },
   "devDependencies": {
     "playwright": "1.56.1"
