@@ -1203,6 +1203,7 @@ window.addEventListener('message', e => {   // Only accept the expected song/lyr
   if (t !== linkedSong && current && current.kind === 'display') showIntro(t, typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '');
   linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
   LINK.via = d.via === 'live' ? 'live' : 'built-in';
+  LINK.artDbg = typeof d.artDbg === 'string' ? d.artDbg.slice(0, 300) : 'old link code (no colour support): re-drag the bookmark';
   if (Array.isArray(d.art) && d.art.length === 5 && d.art.every(x => typeof x === 'string' && /^([0-9a-f]{6})?$/i.test(x))){
     const sig = d.art.join(''); if (sig !== PALETTES.album.sig){ const ap = albumPalette(d.art.map(x => x && '#' + x)); if (ap) setAlbum(ap, sig); }
   }
@@ -1267,13 +1268,13 @@ const tryKind=k=>fetch('https://amp-api.music.apple.com/v1/catalog/'+sf+'/songs/
 tryKind('syllable-lyrics').catch(e1=>tryKind('lyrics').catch(e2=>{throw new Error(e1.message+' / '+e2.message);})).then(r=>{ttml={lines:r.L,id:String(id),kind:r.k};ttmlDbg='ok';}).catch(e=>{ttmlDbg=e.message;}).finally(()=>{ttmlBusy=false;});};
 
 const send=()=>{const w=window.__agW;if(!w||w.closed){clearInterval(window.__agT);return;}n++;
-const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'',a=(m&&m.artist)||'',p=null,pl=true,du=0,art=null;
-try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk){if(typeof mk.currentPlaybackTime==='number')p=mk.currentPlaybackTime;if(typeof mk.isPlaying==='boolean')pl=mk.isPlaying;const it=mk.nowPlayingItem;if(it){if(!t)t=it.title||'';if(!a)a=it.artistName||'';du=it.playbackDuration||0;if(du>10000)du/=1000;try{const aw=(it.attributes&&it.attributes.artwork)||it.artwork||{},hx=v=>typeof v==='string'&&/^#?[0-9a-f]{6}$/i.test(v)?v.replace('#',''):'';art=['bgColor','textColor1','textColor2','textColor3','textColor4'].map(k=>hx(aw[k]));if(!art.some(Boolean))art=null;}catch(x){art=null;}if(mk.developerToken)getTTML(mk,it);else ttmlDbg='no Apple token on this page';}}}catch(e){ttmlDbg='MusicKit error: '+e.message;}
+const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'',a=(m&&m.artist)||'',p=null,pl=true,du=0,art=null,artDbg='no MusicKit song';
+try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk){if(typeof mk.currentPlaybackTime==='number')p=mk.currentPlaybackTime;if(typeof mk.isPlaying==='boolean')pl=mk.isPlaying;const it=mk.nowPlayingItem;if(it){if(!t)t=it.title||'';if(!a)a=it.artistName||'';du=it.playbackDuration||0;if(du>10000)du/=1000;try{const aw=(it.attributes&&it.attributes.artwork)||it.artwork||{},hx=v=>typeof v==='string'&&/^#?[0-9a-f]{6}$/i.test(v)?v.replace('#',''):'';art=['bgColor','textColor1','textColor2','textColor3','textColor4'].map(k=>hx(aw[k]));if(!art.some(Boolean)){artDbg='no colours on the artwork (artwork has: '+(Object.keys(aw).join(',')||'nothing')+'; item has: '+Object.keys(it).slice(0,12).join(',')+(it.attributes?'; attributes has: '+Object.keys(it.attributes).slice(0,14).join(','):'')+')';art=null;}else artDbg='ok';}catch(x){art=null;artDbg='error: '+x.message;}if(mk.developerToken)getTTML(mk,it);else ttmlDbg='no Apple token on this page';}}}catch(e){ttmlDbg='MusicKit error: '+e.message;}
 if(p===null){const el=[...document.querySelectorAll('audio,video')].find(x=>x.currentTime>0);if(el){p=el.currentTime;pl=!el.paused;du=du||el.duration||0;}}
 if(!t){t=document.title.replace(/\\s*[-–—|]\\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}
 let lyr=null,dbg='';try{if(!box||!box.L.length||!box.L[0].isConnected||n%6===0)box=findLines();dbg=box.dbg;if(box.L.length){if(!lineCache||lineCacheN!==box.L.length||n%10===0){lineCache=box.L.map(e=>e.tagName==='AMP-LYRICS-DISPLAY-INSTRUMENTAL-LINE'?'':lineTxt(e));lineCacheN=box.L.length;}const lines=lineCache;const [ai,how]=activeOf(box.L);if(ai<0)dbg='found '+box.L.length+' lines but no highlight (attributes on a line: '+box.L[0].getAttributeNames().join(',')+')';else dbg='how:'+how;const s2=lines.join('\\n');lyr={i:ai,lines:(s2!==sig||n%10===0)?lines:null};sig=s2;}}catch(e){dbg='lyrics error: '+e.message;}
 const tsend=ttml&&(n%20===1||ttml.sent!==ttml.id)?(ttml.sent=ttml.id,{id:ttml.id,kind:ttml.kind,lines:ttml.lines}):null;
-if(t)w.postMessage({afterglow:'song',v:6,ttml:tsend,ttmlOk:!!ttml,ttmlDbg,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,art,lyr,dbg,via:window.__agVia||'built-in'},O);};send();window.__agT=setInterval(send,100);})()`;
+if(t)w.postMessage({afterglow:'song',v:6,ttml:tsend,ttmlOk:!!ttml,ttmlDbg,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,art,artDbg,lyr,dbg,via:window.__agVia||'built-in'},O);};send();window.__agT=setInterval(send,100);})()`;
   if (url === null) return code;   // used by tools/gen-apple-link.cjs to write assets/apple-link.js
   // Self-updating: the bookmark first loads the latest link code from this site (assets/apple-link.js). If Apple Music
   // blocks outside scripts, or it doesn't load within 2.5 s, it runs the copy built into the bookmark instead
@@ -3623,7 +3624,8 @@ function readouts(now){
       const words = !on ? '' : attOn() ? '✅ Word timing: exact, from Apple (' + (ATT.kind === 'syllable-lyrics' ? 'per syllable' : 'per line') + ')'
         : ATT.dbg && ATT.dbg !== 'ok' ? '⚠️ Word timing: Apple said "' + ATT.dbg + '", so words are estimated'
         : aplOn() ? '⚪ Word timing: estimated, following the highlighted line in Apple\'s lyrics view' : LYR.state === 'synced' ? '⚪ Word timing: estimated from LRCLIB line times' : '⚪ Word timing: waiting for lyrics';
-      el.textContent = [link, on && sn ? '🎵 ' + sn.title + (sn.artist ? ' · ' + sn.artist : '') : '', capture, words].filter(Boolean).join('\n');
+      const colours = !on ? '' : PALETTES.album.live && LINK.artDbg === 'ok' ? '✅ Album colours: received from Apple' + (settings.palette === 'album' ? '' : ' (tap the ♪ swatch to use them)') : '⚠️ Album colours: ' + (LINK.artDbg || 'nothing received');
+      el.textContent = [link, on && sn ? '🎵 ' + sn.title + (sn.artist ? ' · ' + sn.artist : '') : '', capture, words, colours].filter(Boolean).join('\n');
     } }
   { const en = document.getElementById('energyNow'); if (en) en.textContent = F.live ? 'Now: ' + { calm: 'calm 🌊', mid: 'medium 🎶', high: 'high energy 🔥' }[NRG.tier] + ' (' + Math.round(NRG.v*100) + '%)' : 'Now: waiting for audio'; }
   const tracking=$('#trackingStatus');if(tracking)tracking.textContent=!F.live?'Waiting for audio':AUDIO.ready && AUDIO.latest?'Beat confidence '+Math.round(AUDIO.latest.confidence*100)+'% · '+AUDIO.latest.phase:'Standard tracking';
