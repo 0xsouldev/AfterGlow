@@ -3922,6 +3922,7 @@ function recType(){ if (!window.MediaRecorder) return ''; for (const t of ['vide
 function recLabel(){ if (!REC.mr) { btnRec.textContent = '● Rec'; btnRec.setAttribute('aria-pressed', 'false'); return; } const left = Math.max(0, 15 - Math.floor((performance.now() - REC.t0)/1000)); btnRec.textContent = '■ 0:' + String(left).padStart(2, '0'); btnRec.setAttribute('aria-pressed', 'true'); }
 function toggleRecord(){
   if (REC.mr){ if (REC.mr.state === 'recording') REC.mr.stop(); return; }
+  if (window.top !== window){ toast('Clip recording works on your own Afterglow site (GitHub Pages), not inside an embedded preview, which blocks downloads.', 4200); return; }
   const type = recType(); if (!type || !canvas.captureStream){ toast("This browser can't record clips. Try Chrome, Edge or Brave.", 3200); return; }
   let stream;
   try {
