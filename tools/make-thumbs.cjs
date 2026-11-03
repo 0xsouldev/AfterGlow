@@ -12,9 +12,9 @@ const out = path.join(__dirname, '../assets/thumbs');
   await page.goto('http://127.0.0.1:' + server.address().port + '/#debug');
   await page.evaluate(() => { localStorage.clear(); });
   await page.click('#srcDemo'); await page.waitForTimeout(1500);
-  const modes = process.argv.slice(2).length ? process.argv.slice(2) : await page.locator('[data-mode]').evaluateAll(b => b.map(x => x.dataset.mode));
+  const modes = process.argv.slice(2).length ? process.argv.slice(2) : await page.locator('[data-pick]').evaluateAll(b => b.map(x => x.dataset.pick));
   for (const m of modes){
-    await page.evaluate(mode => { document.querySelector('[data-mode="' + mode + '"]').click(); document.body.classList.add('ui-off'); window.dispatchEvent(new Event('resize')); }, m);
+    await page.evaluate(mode => { document.querySelector('[data-pick="' + mode + '"]').click(); document.body.classList.add('ui-off'); window.dispatchEvent(new Event('resize')); }, m);
     await page.waitForTimeout(2600);   // past the crossfade, and long enough for the mode to fill in
     const data = await page.evaluate(() => { const src = document.getElementById('stage'), c = document.createElement('canvas'); c.width = 384; c.height = 216; c.getContext('2d').drawImage(src, 0, 0, 384, 216); return c.toDataURL('image/webp', 0.72); });
     fs.writeFileSync(path.join(out, m + '.webp'), Buffer.from(data.split(',')[1], 'base64'));

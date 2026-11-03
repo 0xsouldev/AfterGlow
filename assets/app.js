@@ -3872,21 +3872,13 @@ window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth-1
 window.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; drop.hidden = true; const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) playFile(f); });
 
 /* ---------- controls ---------- */
-const modeBtns = MODES.map(mode => {
-  const button = document.createElement('button'); button.className = 'btn';
-  button.dataset.mode = mode; button.textContent = MODE_NAMES[mode]; button.setAttribute('aria-pressed', 'false');
-  $('#modes').appendChild(button); return button;
-});
-function setMode(m){ if (m !== 'cam' && settings.mode === 'cam') camStop(); if (m !== settings.mode) startXfade(); settings.mode = m; $('#btnCamera').hidden = m !== 'cam'; modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m))); clearHard(); ridge.length = 0; parts.length = 0; autoSince = performance.now(); autoBeats = 0; save(); if (typeof showActiveMode === 'function') showActiveMode(); }
+// the dock just shows the mode that's on (tap it, or All, to pick another); the full list lives in All modes
+const curModeEl = $('#curMode');
+function showCurrentMode(m){ curModeEl.textContent = MODE_NAMES[m]; curModeEl.title = MODE_NAMES[m] + ': tap to see all modes (L)'; document.body.dataset.mode = m; }
+function setMode(m){ if (m !== 'cam' && settings.mode === 'cam') camStop(); if (m !== settings.mode) startXfade(); settings.mode = m; $('#btnCamera').hidden = m !== 'cam'; showCurrentMode(m); clearHard(); ridge.length = 0; parts.length = 0; autoSince = performance.now(); autoBeats = 0; save(); }
 function pickMode(m){ setAuto(false); setMode(m); }
-const modesEl = $('#modes');
-function modeEdges(){ const max = modesEl.scrollWidth - modesEl.clientWidth; modesEl.classList.toggle('more-l', modesEl.scrollLeft > 4); modesEl.classList.toggle('more-r', modesEl.scrollLeft < max - 4); }
-modesEl.addEventListener('scroll', modeEdges, { passive:true });
-modesEl.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { modesEl.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive:false });
-window.addEventListener('resize', modeEdges);
-function showActiveMode(){ const b = modesEl.querySelector('[data-mode="' + settings.mode + '"]'); if (!b) return; const l = b.offsetLeft - modesEl.offsetLeft, r = l + b.offsetWidth; if (l < modesEl.scrollLeft || r > modesEl.scrollLeft + modesEl.clientWidth) modesEl.scrollTo({ left: l - 40, behavior: reduceMotion ? 'auto' : 'smooth' }); setTimeout(modeEdges, 400); }
 function setAuto(on){ settings.auto = on; $('#btnAuto').setAttribute('aria-pressed', String(on)); autoSince = performance.now(); autoBeats = 0; save(); }
-modeBtns.forEach(b => b.addEventListener('click', () => pickMode(b.dataset.mode)));
+curModeEl.addEventListener('click', () => $('#btnAllModes').click());
 const fxBtns = Array.from(document.querySelectorAll('[data-fx]'));
 function syncFx(){ fxBtns.forEach(b => { const k = b.dataset.fx, v = settings.fx[k]; b.setAttribute('aria-pressed', String(!!v)); if (k === 'mirror') b.textContent = v ? 'Mirror ×' + v : 'Mirror'; }); }
 function toggleFx(k){ if (k === 'mirror') settings.fx.mirror = settings.fx.mirror === 0 ? 2 : settings.fx.mirror === 2 ? 4 : 0; else settings.fx[k] = !settings.fx[k]; syncFx(); save(); if (k === 'drops' && !settings.fx.drops) F.drop = 0; }

@@ -204,3 +204,5 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
 
 .scene-add{display:flex;gap:6px}.scene-add input{flex:1;min-width:0;box-sizing:border-box;font:600 13px var(--font-display);color:var(--text);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:8px 10px;outline:none}.scene-add input:focus{border-color:var(--accent)}
 .scene{display:inline-flex;align-items:center;gap:2px}.scene .mchip{border-width:1.5px}.scene-x{appearance:none;border:0;background:transparent;color:var(--muted);font:600 15px/1 var(--font-display);padding:4px 6px;cursor:pointer;border-radius:6px}.scene-x:hover{color:var(--text);background:rgba(255,255,255,.08)}
+
+.btn.curmode{min-width:7.5em;justify-content:center;border:1px solid var(--line);font-weight:700;letter-spacing:-.01em}

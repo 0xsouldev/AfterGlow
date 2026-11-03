@@ -42,13 +42,14 @@ async function contextFor(browser, url, options = {}) {
 async function renderModes(browser, url, engine, viewport, label) {
   const { context, page, errors } = await contextFor(browser, url, { viewport });
   try {
-    const modes = await page.locator('[data-mode]').evaluateAll(buttons => buttons.map(b => b.dataset.mode));
+    const modes = await page.locator('[data-pick]').evaluateAll(buttons => buttons.map(b => b.dataset.pick));
     assert.equal(modes.length, 65);
     const samples = [];
     for (const mode of modes) {
       await page.locator('#btnAllModes').click();
       await page.locator(`[data-pick="${mode}"]`).click();
-      assert.equal(await page.locator(`[data-mode="${mode}"]`).getAttribute('aria-pressed'), 'true');
+      assert.equal(await page.evaluate(() => document.body.dataset.mode), mode);
+      assert.ok((await page.locator(`[data-pick="${mode}"]`).textContent()).startsWith(await page.locator('#curMode').textContent()), `${mode}: dock shows the current mode`);
       const before = await page.evaluate(() => window.__ag.frames);
       await page.waitForFunction(n => window.__ag.frames >= n + 8, before);
       await page.waitForTimeout(750); // Let the 700 ms crossfade finish before inspecting this mode.
