@@ -20,7 +20,21 @@ const PALETTES = {
   forest:  { name:'Forest',  bg:'#060a07', stops:['#14613a','#2fa05a','#a8e05f','#f4ffd9'] },
   gold:    { name:'Gold',    bg:'#0a0805', stops:['#7a4b0c','#c8891b','#ffd76a','#fff8e1'] },
 };
+// Album art: a palette rebuilt for every song from the colours Apple ships with its artwork (via the Afterglow link)
+PALETTES.album = { name: 'Album art', bg: '#09080e', stops: PALETTES.sunset.stops.slice(), live: false };
 const PAL_KEYS = Object.keys(PALETTES);
+function hexHsl(h){ const n = parseInt(h.replace('#', ''), 16), r = (n >> 16 & 255)/255, g2 = (n >> 8 & 255)/255, b = (n & 255)/255, mx = Math.max(r, g2, b), mn = Math.min(r, g2, b), l = (mx + mn)/2; let hh = 0, ss = 0;
+  if (mx !== mn){ const d = mx - mn; ss = l > 0.5 ? d/(2 - mx - mn) : d/(mx + mn); hh = mx === r ? (g2 - b)/d + (g2 < b ? 6 : 0) : mx === g2 ? (b - r)/d + 2 : (r - g2)/d + 4; hh /= 6; } return [hh, ss, l]; }
+function hslHex(hh, ss, l){ const f = n => { const k = (n + hh*12) % 12, a = ss*Math.min(l, 1 - l), c = l - a*Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(c*255).toString(16).padStart(2, '0'); }; return '#' + f(0) + f(8) + f(4); }
+function albumPalette(cols){   // cols: Apple's [bg, text1..4] hex. Visuals need bright colours on a dark background, so lift them
+  const hs = cols.filter(Boolean).map(hexHsl); if (!hs.length) return null;
+  const vivid = hs.map(([hh, ss, l]) => [hh, Math.min(1, Math.max(ss, 0.35)*1.15), clamp(l, 0.42, 0.78)]);
+  vivid.sort((a, b) => a[2] - b[2]);
+  const uniq = vivid.filter((c, i) => !i || Math.abs(c[0] - vivid[i - 1][0]) > 0.03 || Math.abs(c[2] - vivid[i - 1][2]) > 0.06);
+  while (uniq.length < 3) uniq.push([uniq[uniq.length - 1][0], uniq[uniq.length - 1][1]*0.6, Math.min(0.92, uniq[uniq.length - 1][2] + 0.12)]);
+  const stops = uniq.slice(0, 5).map(c => hslHex(c[0], c[1], c[2])); stops.push(hslHex(uniq[uniq.length - 1][0], 0.35, 0.93));
+  const [bh, bs] = hs[0]; return { bg: hslHex(bh, Math.min(0.5, bs), 0.055), stops };
+}
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', scope:'Scope', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', domino:'Domino Run', slots:'Slot Machine', neon:'Neon Sign', mosh:'Moshpit', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 const MODES = Object.keys(MODE_NAMES);
 // Every mode sits in one group: for browsing All modes and for one-tap Auto playlists
@@ -33,7 +47,7 @@ const MODE_GROUPS = {
 };
 const modeGroup = m => Object.keys(MODE_GROUPS).find(k => MODE_GROUPS[k].modes.includes(m)) || 'chill';
 
-const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, autoEnergy:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
+const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, autoEnergy:true, autoPalette:false, introCard:true, scenes:[], songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
 try {
   const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -46,6 +60,7 @@ try {
     if ([8, 16, 32].includes(s.autoEvery)) settings.autoEvery = s.autoEvery;
     if (Array.isArray(s.favorites)) settings.favorites = MODES.filter(m => s.favorites.includes(m));
     settings.autoFav = s.autoFav === true;
+    if (Array.isArray(s.scenes)) settings.scenes = s.scenes.filter(x => x && typeof x.name === 'string' && MODES.includes(x.mode) && PALETTES[x.palette]).slice(0, 12).map(x => ({ name: x.name.slice(0, 24), mode: x.mode, palette: x.palette, fx: { drops: x.fx && x.fx.drops !== false, vhs: !!(x.fx && x.fx.vhs), mirror: x.fx && [0, 2, 4].includes(x.fx.mirror) ? x.fx.mirror : 0, glow: !!(x.fx && x.fx.glow) } }));
     if (['low', 'balanced', 'high'].includes(s.quality)) settings.quality = s.quality;
     for(const k of ['dropSensitivity','dropImpact'])if(Number.isFinite(s[k]))settings[k]=clamp(s[k],0.5,1.5);
     settings.reduceFlashes = s.reduceFlashes === true;
@@ -53,7 +68,7 @@ try {
     if (typeof s.text === 'string') settings.text = s.text.slice(0, 24);
     if (typeof s.lyrOff === 'number' && isFinite(s.lyrOff)) settings.lyrOff = clamp(s.lyrOff, -1, 2);
     if ([2, 4, 8].includes(s.cymEvery)) settings.cymEvery = s.cymEvery;
-    for (const k of ['agc', 'xfade', 'autoDrop', 'autoEnergy', 'songText', 'lyrics', 'listen']) if (typeof s[k] === 'boolean') settings[k] = s[k];
+    for (const k of ['agc', 'xfade', 'autoDrop', 'autoEnergy', 'autoPalette', 'introCard', 'songText', 'lyrics', 'listen']) if (typeof s[k] === 'boolean') settings[k] = s[k];
     if (['auto', 'kick', 'snare', 'all'].includes(s.beatSrc)) settings.beatSrc = s.beatSrc;
     if (s.fx && typeof s.fx === 'object') settings.fx = { drops: s.fx.drops !== false, vhs: s.fx.vhs === true, mirror: [0, 2, 4].includes(s.fx.mirror) ? s.fx.mirror : 0, glow: s.fx.glow === true };
   }
@@ -1185,9 +1200,12 @@ window.addEventListener('message', e => {   // Only accept the expected song/lyr
   if (!/^https:\/\/([a-z0-9-]+\.)?music\.apple\.com$/.test(e.origin) || !d || d.afterglow !== 'song' || typeof d.title !== 'string') return;
   const t = d.title.replace(/\s+/g, ' ').trim().slice(0, 200); if (!t) return;
   if (t !== linkedSong) { if(current && current.kind==='display')resetBeat(); APL.lines = []; APL.i = -1; APL.avg = 3.5; ATT.ok = false; }
-  if (t !== linkedSong && settings.songText && current && current.kind === 'display') toast('Now playing: ' + t, 2200);
+  if (t !== linkedSong && current && current.kind === 'display') showIntro(t, typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '');
   linkedSong = t; linkedAt = performance.now(); linkedArtist = typeof d.artist === 'string' ? d.artist.trim().slice(0, 60) : '';
   LINK.via = d.via === 'live' ? 'live' : 'built-in';
+  if (Array.isArray(d.art) && d.art.length === 5 && d.art.every(x => typeof x === 'string' && /^([0-9a-f]{6})?$/i.test(x))){
+    const sig = d.art.join(''); if (sig !== PALETTES.album.sig){ const ap = albumPalette(d.art.map(x => x && '#' + x)); if (ap) setAlbum(ap, sig); }
+  }
   LINK.v = Number(d.v) || 1; if (LINK.v < 6 && !LINK.warned){ LINK.warned = true; toast('Your Afterglow link bookmark is out of date. Hard refresh this page and drag a fresh one from Settings.', 6000); }
   APL.dbg = typeof d.dbg === 'string' ? d.dbg.slice(0, 200) : ''; APL.how = APL.dbg.startsWith('how:') ? APL.dbg.slice(4) : ''; if (APL.how) APL.dbg = '';
   if (d.lyr && typeof d.lyr === 'object'){
@@ -1249,13 +1267,13 @@ const tryKind=k=>fetch('https://amp-api.music.apple.com/v1/catalog/'+sf+'/songs/
 tryKind('syllable-lyrics').catch(e1=>tryKind('lyrics').catch(e2=>{throw new Error(e1.message+' / '+e2.message);})).then(r=>{ttml={lines:r.L,id:String(id),kind:r.k};ttmlDbg='ok';}).catch(e=>{ttmlDbg=e.message;}).finally(()=>{ttmlBusy=false;});};
 
 const send=()=>{const w=window.__agW;if(!w||w.closed){clearInterval(window.__agT);return;}n++;
-const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'',a=(m&&m.artist)||'',p=null,pl=true,du=0;
-try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk){if(typeof mk.currentPlaybackTime==='number')p=mk.currentPlaybackTime;if(typeof mk.isPlaying==='boolean')pl=mk.isPlaying;const it=mk.nowPlayingItem;if(it){if(!t)t=it.title||'';if(!a)a=it.artistName||'';du=it.playbackDuration||0;if(du>10000)du/=1000;if(mk.developerToken)getTTML(mk,it);else ttmlDbg='no Apple token on this page';}}}catch(e){ttmlDbg='MusicKit error: '+e.message;}
+const m=navigator.mediaSession&&navigator.mediaSession.metadata;let t=(m&&m.title)||'',a=(m&&m.artist)||'',p=null,pl=true,du=0,art=null;
+try{const mk=window.MusicKit&&MusicKit.getInstance&&MusicKit.getInstance();if(mk){if(typeof mk.currentPlaybackTime==='number')p=mk.currentPlaybackTime;if(typeof mk.isPlaying==='boolean')pl=mk.isPlaying;const it=mk.nowPlayingItem;if(it){if(!t)t=it.title||'';if(!a)a=it.artistName||'';du=it.playbackDuration||0;if(du>10000)du/=1000;try{const aw=(it.attributes&&it.attributes.artwork)||it.artwork||{},hx=v=>typeof v==='string'&&/^#?[0-9a-f]{6}$/i.test(v)?v.replace('#',''):'';art=['bgColor','textColor1','textColor2','textColor3','textColor4'].map(k=>hx(aw[k]));if(!art.some(Boolean))art=null;}catch(x){art=null;}if(mk.developerToken)getTTML(mk,it);else ttmlDbg='no Apple token on this page';}}}catch(e){ttmlDbg='MusicKit error: '+e.message;}
 if(p===null){const el=[...document.querySelectorAll('audio,video')].find(x=>x.currentTime>0);if(el){p=el.currentTime;pl=!el.paused;du=du||el.duration||0;}}
 if(!t){t=document.title.replace(/\\s*[-–—|]\\s*Apple Music.*$/i,'').trim();if(/^Apple Music$/i.test(t))t='';}
 let lyr=null,dbg='';try{if(!box||!box.L.length||!box.L[0].isConnected||n%6===0)box=findLines();dbg=box.dbg;if(box.L.length){if(!lineCache||lineCacheN!==box.L.length||n%10===0){lineCache=box.L.map(e=>e.tagName==='AMP-LYRICS-DISPLAY-INSTRUMENTAL-LINE'?'':lineTxt(e));lineCacheN=box.L.length;}const lines=lineCache;const [ai,how]=activeOf(box.L);if(ai<0)dbg='found '+box.L.length+' lines but no highlight (attributes on a line: '+box.L[0].getAttributeNames().join(',')+')';else dbg='how:'+how;const s2=lines.join('\\n');lyr={i:ai,lines:(s2!==sig||n%10===0)?lines:null};sig=s2;}}catch(e){dbg='lyrics error: '+e.message;}
 const tsend=ttml&&(n%20===1||ttml.sent!==ttml.id)?(ttml.sent=ttml.id,{id:ttml.id,kind:ttml.kind,lines:ttml.lines}):null;
-if(t)w.postMessage({afterglow:'song',v:6,ttml:tsend,ttmlOk:!!ttml,ttmlDbg,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,lyr,dbg,via:window.__agVia||'built-in'},O);};send();window.__agT=setInterval(send,100);})()`;
+if(t)w.postMessage({afterglow:'song',v:6,ttml:tsend,ttmlOk:!!ttml,ttmlDbg,title:t,artist:a,pos:(typeof p==='number'&&isFinite(p))?p:null,playing:!!pl,dur:+du||0,art,lyr,dbg,via:window.__agVia||'built-in'},O);};send();window.__agT=setInterval(send,100);})()`;
   if (url === null) return code;   // used by tools/gen-apple-link.cjs to write assets/apple-link.js
   // Self-updating: the bookmark first loads the latest link code from this site (assets/apple-link.js). If Apple Music
   // blocks outside scripts, or it doesn't load within 2.5 s, it runs the copy built into the bookmark instead
@@ -3423,6 +3441,28 @@ function detectDrop(now){
 }
 
 /* ---------- effects, applied as the scene is copied to the screen ---------- */
+// Song intro card: when a new song starts, its title and artist slide in at the bottom left like a music video
+// credit, hold for a few seconds and slide out. Drawn on the final picture, so recorded clips include it
+const INTRO = { t0: -1e9, title: '', artist: '' };
+function showIntro(title, artist){ if (!title) return; INTRO.t0 = performance.now(); INTRO.title = String(title).slice(0, 80); INTRO.artist = String(artist || '').slice(0, 60); }
+function drawIntro(cw, ch){
+  if (!settings.introCard) return;
+  const el = performance.now() - INTRO.t0, dur = 4200; if (el < 0 || el > dur) return;
+  const inT = clamp(el/450, 0, 1), outT = clamp((dur - el)/450, 0, 1), e = Math.min(1 - Math.pow(1 - inT, 3), 1 - Math.pow(1 - outT, 3));
+  const s = DPR*Math.min(1, W/700), x0 = 28*s + (1 - e)*-60*s, yB = (area.bottom || H)*DPR - 30*s;
+  const ts = Math.round(Math.min(46, Math.max(24, W/22))*s/Math.min(1, W/700)), as = Math.round(ts*0.42), ls = Math.round(ts*0.26);
+  out.save(); out.setTransform(1, 0, 0, 1, 0, 0); out.globalCompositeOperation = 'source-over'; out.globalAlpha = e; out.textBaseline = 'alphabetic'; out.textAlign = 'left';
+  out.font = '800 ' + ts*DPR/DPR + 'px ' + FONT_D; let title = INTRO.title; while (out.measureText(title).width > cw*0.8 && title.length > 4) title = title.slice(0, -2);
+  if (title !== INTRO.title) title = title.replace(/\s*\S?$/, '') + '…';
+  const tw = Math.max(out.measureText(title).width, (out.font = '600 ' + as + 'px ' + FONT_D, out.measureText(INTRO.artist).width));
+  const bh = ts + as + ls + 34*s;
+  out.fillStyle = 'rgba(0,0,0,0.45)'; out.fillRect(x0 - 16*s, yB - bh, tw + 40*s, bh + 8*s);   // a soft dark plate so it reads on any mode
+  out.fillStyle = col(0.85, 1); out.fillRect(x0 - 16*s, yB - bh, 5*s, bh + 8*s);   // accent bar
+  out.font = '600 ' + ls + 'px ' + FONT_M; out.fillStyle = col(0.7, 0.9); out.fillText('NOW PLAYING', x0, yB - ts - as - 14*s);
+  out.font = '800 ' + ts + 'px ' + FONT_D; out.fillStyle = '#fff'; out.fillText(title, x0, yB - as - 8*s);
+  if (INTRO.artist){ out.font = '600 ' + as + 'px ' + FONT_D; out.fillStyle = 'rgba(255,255,255,0.72)'; out.fillText(INTRO.artist, x0, yB); }
+  out.restore();
+}
 function present(){
   const fx = settings.fx, cw = canvas.width, ch = canvas.height;
   out.setTransform(1, 0, 0, 1, 0, 0); out.globalCompositeOperation = 'source-over'; out.globalAlpha = 1;
@@ -3458,15 +3498,30 @@ function present(){
     out.fillStyle = vignette; out.fillRect(0, 0, cw, ch);
   }
   if (XF.a > 0){
-    const a = 1 - (performance.now() - XF.t)/700;
+    const p = (performance.now() - XF.t)/(XF.kind === 'fade' ? 700 : 650), a = 1 - p;
     if (a <= 0) XF.a = 0;
-    else { out.globalCompositeOperation = 'source-over'; out.globalAlpha = a*a*(3 - 2*a); out.drawImage(xCv, 0, 0, cw, ch); out.globalAlpha = 1; }
+    else {   // the old mode's last frame leaves in one of a few styles; the new mode shows through
+      out.globalCompositeOperation = 'source-over'; const e = p*p*(3 - 2*p);
+      if (XF.kind === 'zoom'){ out.save(); out.globalAlpha = 1 - e; const z = 1 + e*0.45; out.translate(cw/2, ch/2); out.scale(z, z); out.drawImage(xCv, -cw/2, -ch/2, cw, ch); out.restore(); }
+      else if (XF.kind === 'wipe'){ const x = e*cw; out.drawImage(xCv, x, 0, cw - x, ch, x, 0, cw - x, ch); out.fillStyle = col(0.9, 0.9*(1 - p)); out.fillRect(x - 3*DPR, 0, 6*DPR, ch); }
+      else if (XF.kind === 'iris'){ out.save(); out.beginPath(); out.rect(0, 0, cw, ch); out.arc(cw/2, ch/2, e*Math.hypot(cw, ch)/2, 0, Math.PI*2, true); out.clip('evenodd'); out.drawImage(xCv, 0, 0, cw, ch); out.restore(); }
+      else if (XF.kind === 'glitch'){
+        const n = 14, sh = Math.ceil(ch/n); out.globalAlpha = a > 0.5 ? 1 : a*2;
+        for (let i = 0; i < n; i++){ const dx = (Math.random() - 0.5)*cw*0.18*e*(i % 3 ? 1 : 2.2); out.drawImage(xCv, 0, i*sh, cw, sh, dx, i*sh, cw, sh); }
+        out.globalAlpha = 1; if (p < 0.25){ out.globalCompositeOperation = 'lighter'; out.fillStyle = col(Math.random(), 0.12*(1 - p*4)); out.fillRect(0, 0, cw, ch); out.globalCompositeOperation = 'source-over'; }
+      }
+      else { out.globalAlpha = a*a*(3 - 2*a); out.drawImage(xCv, 0, 0, cw, ch); out.globalAlpha = 1; }
+    }
   }
+  drawIntro(cw, ch);
 }
 /* smooth transitions: keep the last frame of the old mode and fade it out over the new one */
-const xCv = document.createElement('canvas'), XF = { a: 0, t: 0 };
+const xCv = document.createElement('canvas'), XF = { a: 0, t: 0, kind: 'fade', next: '', last: '' };
 function startXfade(){
   if (!settings.xfade || reduceMotion || !canvas.width) return;
+  // Auto picks a style (never the same twice in a row); your own switches stay a plain fade
+  const kinds = ['zoom', 'wipe', 'iris', 'fade'].concat(settings.reduceFlashes ? [] : ['glitch']).filter(k => k !== XF.last);
+  XF.kind = XF.next === 'auto' ? kinds[(Math.random()*kinds.length)|0] : 'fade'; XF.next = ''; if (XF.kind !== 'fade') XF.last = XF.kind;
   try { xCv.width = canvas.width; xCv.height = canvas.height; xCv.getContext('2d').drawImage(canvas, 0, 0); XF.a = 1; XF.t = performance.now(); } catch (e) {}
 }
 
@@ -3494,19 +3549,21 @@ function updateEnergy(now){
   const raw = F.db < -58 ? 0 : 0.5*density + 0.2*clamp(F.bass*1.4, 0, 1)*(0.4 + 0.6*density) + 0.1*clamp(F.high*2.5, 0, 1) + 0.2*tempo;
   if (F.dropNow) NRG.hold = now + 8000;   // a drop is peak energy, even before the beat tracker has locked on again
   NRG.v += ((now < (NRG.hold || 0) ? Math.max(raw, 0.75) : raw) - NRG.v)*(1 - Math.exp(-dt/(now < (NRG.hold || 0) ? 800 : 4000)));
+  const prevTier = NRG.tier;
   NRG.tier = NRG.tier === 'calm' ? (NRG.v > 0.37 ? 'mid' : 'calm') : NRG.tier === 'high' ? (NRG.v < 0.55 ? 'mid' : 'high') : NRG.v < 0.31 ? 'calm' : NRG.v > 0.61 ? 'high' : 'mid';
+  if (NRG.tier !== prevTier) NRG.since = now;   // when the current energy level started, so a brief wobble isn't a 'new section'
   if (DBG) DBG.energy = { v: NRG.v, tier: NRG.tier, density, bass: F.bass, high: F.high, bpm, hits: NRG.ev.length, conf };
 }
 function autoPool(){ const p = MODES.filter(m => !settings.autoSkip.includes(m)); return p.length >= 2 ? p : MODES; }
 function autoNext(want){
-  const pool = autoPool(); let m;
+  const pool = autoPool(); let m; XF.next = 'auto'; AUTO_TIER.v = NRG.tier;
   // prefer modes that suit the song's energy (a drop always wants a wild one); the bag still makes sure every mode gets played
   const tier = want || (settings.autoEnergy && F.live ? NRG.tier : '');
   if (tier && tier !== 'mid'){
     if (!autoBag.length){ autoBag = pool.filter(x => x !== settings.mode); for (let i = autoBag.length - 1; i > 0; i--){ const j = (Math.random()*(i + 1))|0; const t = autoBag[i]; autoBag[i] = autoBag[j]; autoBag[j] = t; } }
     const fit = autoBag.map((x, i) => [x, i]).filter(([x]) => x !== settings.mode && pool.includes(x) && modeTier(x) !== (tier === 'calm' ? 'high' : 'calm'));
     const best = fit.find(([x]) => modeTier(x) === tier) || fit[0];
-    if (best){ autoBag.splice(best[1], 1); setMode(best[0]); toast(MODE_NAMES[best[0]], 1600); return; }
+    if (best){ autoBag.splice(best[1], 1); setMode(best[0]); autoColour(); toast(MODE_NAMES[best[0]], 1600); return; }
   }
   do {
     if (!autoBag.length){
@@ -3515,19 +3572,31 @@ function autoNext(want){
     }
     m = autoBag.pop();
   } while (m === settings.mode || !pool.includes(m));
-  setMode(m); toast(MODE_NAMES[m], 1600);
+  setMode(m); autoColour(); toast(MODE_NAMES[m], 1600);
 }
 function stepMode(dir){
   if (settings.auto && dir > 0){ autoNext(); return; }
   const m = MODES[(MODES.indexOf(settings.mode) + dir + MODES.length) % MODES.length];
   pickMode(m); toast(MODE_NAMES[m], 1200);
 }
+function autoColour(){   // Auto colours: a fresh palette with each switch (Album art stays put, since it follows the song)
+  if (!settings.autoPalette || settings.palette === 'album') return;
+  const keys = PAL_KEYS.filter(k => k !== 'album' && k !== settings.palette); setPalette(keys[(Math.random()*keys.length)|0], true);
+}
 function autoTick(now){
   if (!settings.auto || (typeof PEEK !== 'undefined' && PEEK.from)) return;   // not while you're previewing a mode in All modes
-  if (F.beatNow) autoBeats++;
+  // without a locked tempo every drum hit can read as a beat, so count at most one every 0.4 s to keep Auto's pace sane
+  const beat = F.beatNow && (TEMPO.bpm > 0 || now - (AUTO_TIER.lastBeat || 0) > 400);
+  if (beat){ autoBeats++; AUTO_TIER.lastBeat = now; }
   if (settings.autoDrop && F.dropNow && autoBeats >= 4){ autoNext(settings.autoEnergy ? 'high' : ''); return; }   // big moment: switch right on the drop
-  if ((autoBeats >= settings.autoEvery && F.beatNow) || now - autoSince > settings.autoEvery*800) autoNext();
+  // on the phrase: beats are counted from the last switch, so switching on a multiple of 8 keeps landing on the bar.
+  // A clear change in the song (calm part kicking into a big one, or the other way) switches early, once Auto has
+  // had at least half its usual time
+  const due = autoBeats >= settings.autoEvery && autoBeats % 8 === 0;
+  const section = settings.autoEnergy && F.live && NRG.tier !== AUTO_TIER.v && now - (NRG.since || 0) > 4000 && autoBeats >= settings.autoEvery/2 && autoBeats % 4 === 0;
+  if ((beat && (due || section)) || now - autoSince > settings.autoEvery*1200) autoNext();
 }
+const AUTO_TIER = { v: 'mid' };
 
 /* ---------- readouts ---------- */
 const roLevel = $('#roLevel'), roNote = $('#roNote'), roHz = $('#roHz'), roBpm = $('#roBpm'), roBpmUnit = $('#roBpmUnit');
@@ -3711,6 +3780,7 @@ function playFile(file){
   // tidy the file name into a song name: drop track numbers like "03 - " and turn underscores into spaces
   songName = name.replace(/_/g, ' ').replace(/^\s*\d{1,3}\s*[-.)_ ]\s*/, '').trim().slice(0, 200);
   setLive('file', name);
+  { const sn = songNow(); if (sn) showIntro(sn.title, sn.artist); }
 }
 function syncTransport(){
   if (!audioEl) return;
@@ -3819,23 +3889,93 @@ const fxBtns = Array.from(document.querySelectorAll('[data-fx]'));
 function syncFx(){ fxBtns.forEach(b => { const k = b.dataset.fx, v = settings.fx[k]; b.setAttribute('aria-pressed', String(!!v)); if (k === 'mirror') b.textContent = v ? 'Mirror ×' + v : 'Mirror'; }); }
 function toggleFx(k){ if (k === 'mirror') settings.fx.mirror = settings.fx.mirror === 0 ? 2 : settings.fx.mirror === 2 ? 4 : 0; else settings.fx[k] = !settings.fx[k]; syncFx(); save(); if (k === 'drops' && !settings.fx.drops) F.drop = 0; }
 fxBtns.forEach(b => b.addEventListener('click', () => toggleFx(b.dataset.fx)));
+// Scenes: saved combos of mode + palette + effects, one tap to switch to
+const sceneList = $('#sceneList'), sceneName = $('#sceneName');
+function applyScene(sc){ setAuto(false); setMode(sc.mode); setPalette(sc.palette); settings.fx = Object.assign({}, sc.fx); syncFx(); save(); toast('Scene: ' + sc.name, 1400); }
+function renderScenes(){
+  sceneList.replaceChildren();
+  settings.scenes.forEach((sc, i) => {
+    const row = document.createElement('span'); row.className = 'scene';
+    const b = document.createElement('button'); b.className = 'mchip'; b.title = MODE_NAMES[sc.mode] + ' · ' + PALETTES[sc.palette].name;
+    b.style.borderColor = PALETTES[sc.palette].stops[1]; b.textContent = sc.name; b.addEventListener('click', () => applyScene(sc));
+    const x = document.createElement('button'); x.className = 'scene-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Delete scene ' + sc.name);
+    x.addEventListener('click', () => { settings.scenes.splice(i, 1); save(); renderScenes(); });
+    row.append(b, x); sceneList.appendChild(row);
+  });
+  $('#sceneEmpty').hidden = settings.scenes.length > 0;
+}
+function saveScene(){
+  const name = (sceneName.value.trim() || MODE_NAMES[settings.mode] + ' · ' + PALETTES[settings.palette].name).slice(0, 24);
+  const sc = { name, mode: settings.mode, palette: settings.palette, fx: Object.assign({}, settings.fx) };
+  const at = settings.scenes.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+  if (at >= 0) settings.scenes[at] = sc; else { if (settings.scenes.length >= 12) settings.scenes.shift(); settings.scenes.push(sc); }
+  sceneName.value = ''; save(); renderScenes(); toast('Saved scene: ' + name, 1400);
+}
+$('#sceneSave').addEventListener('click', saveScene);
+sceneName.addEventListener('keydown', e => { if (e.key === 'Enter') saveScene(); });
+renderScenes();
+// Clip recorder: records the visuals (with the song intro card, without the controls) plus the audio, for 15 s or
+// until pressed again, then saves the clip. MP4 where the browser can make it, WebM otherwise
+const REC = { mr: null, chunks: [], t0: 0, timer: 0, dest: null, type: '' };
+const btnRec = $('#btnRec');
+function recType(){ if (!window.MediaRecorder) return ''; for (const t of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']) if (MediaRecorder.isTypeSupported(t)) return t; return ''; }
+function recLabel(){ if (!REC.mr) { btnRec.textContent = '● Rec'; btnRec.setAttribute('aria-pressed', 'false'); return; } const left = Math.max(0, 15 - Math.floor((performance.now() - REC.t0)/1000)); btnRec.textContent = '■ 0:' + String(left).padStart(2, '0'); btnRec.setAttribute('aria-pressed', 'true'); }
+function toggleRecord(){
+  if (REC.mr){ if (REC.mr.state === 'recording') REC.mr.stop(); return; }
+  const type = recType(); if (!type || !canvas.captureStream){ toast("This browser can't record clips. Try Chrome, Edge or Brave.", 3200); return; }
+  let stream;
+  try {
+    stream = canvas.captureStream(30);
+    if (AC && AUDIO.source){ REC.dest = AC.createMediaStreamDestination(); AUDIO.source.connect(REC.dest); REC.dest.stream.getAudioTracks().forEach(t => stream.addTrack(t)); }
+    REC.mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8e6, audioBitsPerSecond: 192e3 });
+  } catch (e){ REC.mr = null; toast("Couldn't start recording: " + e.message, 3600); return; }
+  REC.type = type; REC.chunks = []; REC.t0 = performance.now();
+  REC.mr.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+  REC.mr.onstop = () => {
+    clearInterval(REC.timer); stream.getVideoTracks().forEach(t => t.stop());
+    if (REC.dest){ try { AUDIO.source && AUDIO.source.disconnect(REC.dest); } catch (e) {} REC.dest = null; }
+    const blob = new Blob(REC.chunks, { type: REC.type.split(';')[0] }), ext = REC.type.startsWith('video/mp4') ? 'mp4' : 'webm';
+    const sn = songNow(), name = ('afterglow-' + (sn ? sn.title : MODE_NAMES[settings.mode]) + '-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')).replace(/[^\w\-]+/g, '_') + '.' + ext;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    REC.mr = null; recLabel(); toast('Clip saved: ' + name, 4200);
+    if (DBG) DBG.lastClip = { size: blob.size, type: blob.type, name, audio: REC.hadAudio };
+  };
+  REC.hadAudio = !!(AC && AUDIO.source);
+  REC.mr.start(1000); recLabel(); toast(REC.hadAudio ? 'Recording 15 s… press R or ■ to stop early' : 'Recording without sound (pick a source first for sound)', 2400);
+  REC.timer = setInterval(() => { recLabel(); if (performance.now() - REC.t0 >= 15000 && REC.mr && REC.mr.state === 'recording') REC.mr.stop(); }, 250);
+}
+btnRec.addEventListener('click', toggleRecord);
+// Installable app: on your own site (GitHub Pages), register the service worker and offer an Install button when
+// the browser allows it (Chrome, Edge, Brave). It then opens in its own window with no browser bar
+if ('serviceWorker' in navigator && location.protocol === 'https:' && window.top === window && document.querySelector('link[rel="manifest"]')) navigator.serviceWorker.register('sw.js').catch(() => {});
+{ let ask = null; const bi = $('#btnInstall');
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); ask = e; bi.hidden = false; });
+  bi.addEventListener('click', async () => { if (!ask) return; ask.prompt(); const r = await ask.userChoice.catch(() => null); ask = null; bi.hidden = true; if (r && r.outcome === 'accepted') toast('Installed! Open Afterglow from your Start menu or desktop.', 3600); });
+  window.addEventListener('appinstalled', () => { bi.hidden = true; }); }
 $('#btnAuto').addEventListener('click', () => { setAuto(!settings.auto); toast(settings.auto ? 'Auto on. Modes switch on the beat.' : 'Auto off', 1800); });
 
 const swWrap = $('#swatches');
 PAL_KEYS.forEach(k => {
   const p = PALETTES[k], b = document.createElement('button');
-  b.className = 'sw'; b.dataset.pal = k; b.setAttribute('aria-label', p.name + ' palette'); b.title = p.name;
+  b.className = 'sw' + (k === 'album' ? ' sw-album' : ''); b.dataset.pal = k; b.setAttribute('aria-label', p.name + ' palette'); b.title = k === 'album' ? 'Album art: colours from the song playing on Apple Music (needs the Afterglow link)' : p.name;
   b.style.background = 'conic-gradient(' + p.stops.join(',') + ',' + p.stops[0] + ')';
   b.addEventListener('click', () => setPalette(k)); swWrap.appendChild(b);
 });
-function setPalette(k){
+function setAlbum(ap, sig){   // new song artwork: rebuild the Album swatch, and repaint if it's the palette in use
+  Object.assign(PALETTES.album, ap, { sig, live: true });
+  const b = swWrap.querySelector('[data-pal="album"]'); if (b) b.style.background = 'conic-gradient(' + ap.stops.join(',') + ',' + ap.stops[0] + ')';
+  if (settings.palette === 'album') setPalette('album', true);
+}
+function setPalette(k, quiet){
   settings.palette = k; const p = PALETTES[k]; buildLut(p.stops);
   BG = hexToRgb(p.bg); BGS = p.bg;
   const rs = document.documentElement.style;
   rs.setProperty('--ink', p.bg); rs.setProperty('--scrim', 'rgba(' + BG.join(',') + ',.78)');
   rs.setProperty('--accent', p.stops[1]); rs.setProperty('--accent-2', p.stops[2]);
   swWrap.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pal === k)));
-  clearHard(); save();
+  if (k === 'album' && !p.live && !quiet) toast('Album art colours kick in once the Apple Music link sends a song. Until then it uses Sunset.', 3200);
+  if (!quiet) clearHard(); save();
 }
 
 for(const key of ['dropSensitivity','dropImpact']){const slider=$('#'+key);slider.value=settings[key];slider.addEventListener('input',()=>{settings[key]=+slider.value;save();});}
@@ -4037,6 +4177,7 @@ window.addEventListener('keydown', e => {
   if (k === 'escape' && !setPanel.hidden) { openSettings(false); return; }
   if (k === 'escape' && !modePanel.hidden) { openModes(false); return; }
   if (k === 't' && tag !== 'INPUT') { tapTempo(); return; }
+  if (k === 'r' && tag !== 'INPUT') { toggleRecord(); return; }
   if (k === 'l' && tag !== 'INPUT') { openModes(modePanel.hidden); return; }
   if (e.key === ' ' && !inControl && current && current.toggle) { e.preventDefault(); ensureCtx(); current.toggle(); }
 });

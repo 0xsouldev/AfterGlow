@@ -4,6 +4,15 @@ A browser music visualizer with **65 modes**, 11 palettes, beat-reactive effects
 
 **[Open Afterglow](https://0xsouldev.github.io/AfterGlow/)**
 
+## Highlights
+
+- **Album art colours:** the 🎨 Album swatch rebuilds its palette for every song from the artwork colours Apple Music provides (via the Afterglow link bookmark).
+- **Song intro card:** title and artist slide in when a new song starts (toggle in Settings).
+- **Scenes:** save mode + palette + effects and switch back in one tap (Settings → Scenes).
+- **Clip recorder:** ● Rec (or R) records 15 s of the visuals with sound and downloads it (MP4 where the browser supports it, otherwise WebM).
+- **Auto:** switches on phrases and section changes, can match the song's energy, and can change colours with each switch (Auto colours).
+- **Install as an app:** on the GitHub Pages site, Chrome, Edge and Brave can install Afterglow to open in its own window.
+
 ## Getting started
 
 - **Demo beat:** try the visuals immediately with the built-in 124 BPM synth.

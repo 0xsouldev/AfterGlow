@@ -181,7 +181,7 @@ async function regressions(browser, url) {
     const flash = await page.evaluate(() => {
       testApp.F.drop = 1; testApp.settings.fx.drops = true; testApp.settings.fx.vhs = false;
       const ctx = document.querySelector('#stage').getContext('2d'); let fills = 0;
-      const original = ctx.fillRect; ctx.fillRect = function (...args) { fills++; return original.apply(this, args); };
+      const original = ctx.fillRect; ctx.fillRect = function (...args) { if (args[2] >= this.canvas.width && args[3] >= this.canvas.height) fills++; return original.apply(this, args); };   // full-screen fills only (the song intro card's small plate is fine)
       testApp.present(); ctx.fillRect = original; return fills;
     });
     assert.equal(flash, 0, 'reduced motion must suppress the full-screen drop flash');

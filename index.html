@@ -6,6 +6,9 @@
   <meta name="description" content="Afterglow: 65 music visualizers that react to your audio, with synced lyrics, palettes and effects.">
   <meta name="theme-color" content="#09080e">
   <title>Afterglow Visualizer</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;600&display=swap">
@@ -72,6 +75,7 @@
           <button class="btn" data-fx="mirror" aria-pressed="false" title="Mirror 2 or 4 ways (M)">Mirror</button>
           <button class="btn" data-fx="glow" aria-pressed="false" title="Extra bloom (G)">Glow</button>
           <button class="btn" id="btnTap" aria-pressed="false" title="Tap along to the beat to lock the tempo (T)">Tap</button>
+          <button class="btn" id="btnRec" aria-pressed="false" title="Record a 15 s clip with sound (R)">● Rec</button>
         </div>
         <div class="group tune">
           <div class="field"><span class="flabel">Palette</span><div class="swatches" id="swatches" role="group" aria-label="Palette"></div></div>
@@ -94,7 +98,7 @@
     <li><span class="k">FILE</span><div><b>Your own audio files</b>Press <em>File</em> or drop an MP3, M4A, WAV or FLAC anywhere. Downloaded Apple Music tracks are copy-protected, so use capture for those.</div></li>
   </ol>
   <p class="note" id="viewerNote" hidden><b>Inside an embedded preview</b>, tab, system and mic capture are blocked. Open the standalone Afterglow file in Chrome or Edge for live capture. Files and the demo beat work here.</p>
-  <div class="keys"><kbd>1</kbd>–<kbd>0</kbd> mode · <kbd>←</kbd> <kbd>→</kbd> previous or next mode (→ skips ahead in Auto) · <kbd>A</kbd> auto · <kbd>T</kbd> tap tempo · <kbd>L</kbd> all modes · <kbd>D</kbd> drops · <kbd>V</kbd> VHS · <kbd>M</kbd> mirror · <kbd>G</kbd> glow · <kbd>P</kbd> palette · <kbd>H</kbd> hide controls · <kbd>F</kbd> or double-click fullscreen · <kbd>Space</kbd> play or pause</div>
+  <div class="keys"><kbd>1</kbd>–<kbd>0</kbd> mode · <kbd>←</kbd> <kbd>→</kbd> previous or next mode (→ skips ahead in Auto) · <kbd>A</kbd> auto · <kbd>T</kbd> tap tempo · <kbd>L</kbd> all modes · <kbd>D</kbd> drops · <kbd>V</kbd> VHS · <kbd>M</kbd> mirror · <kbd>G</kbd> glow · <kbd>R</kbd> record a clip · <kbd>P</kbd> palette · <kbd>H</kbd> hide controls · <kbd>F</kbd> or double-click fullscreen · <kbd>Space</kbd> play or pause</div>
 </aside>
 
 <aside class="help" id="modePanel" hidden aria-labelledby="modeTitle">
@@ -122,6 +126,7 @@
     <div class="tog"><span><b>Smooth transitions</b><em>Crossfade when the mode changes</em></span><button class="btn togb" data-tog="xfade" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Auto switches on drops</b><em>Jump to a new mode the moment a drop hits</em></span><button class="btn togb" data-tog="autoDrop" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Match the song's energy</b><em>Auto picks chill modes for calm parts and wild ones when the song is going off. <span id="energyNow">Now: waiting for audio</span></em></span><button class="btn togb" data-tog="autoEnergy" aria-pressed="true">On</button></div>
+    <div class="tog"><span><b>Auto colours</b><em>A new palette with every switch. Leaves Album art alone, since that follows the song.</em></span><button class="btn togb" data-tog="autoPalette" aria-pressed="false">Off</button></div>
   </div>
   <div class="sset">
     <div class="shead">Beat follows</div>
@@ -151,6 +156,12 @@
     <p class="shint">The drop always changes it straight away. Faster settings give the sand less time to settle into a shape.</p>
   </div>
   <div class="sset">
+    <div class="shead">Scenes</div>
+    <div class="scene-add"><input type="text" id="sceneName" maxlength="24" placeholder="Name (e.g. Chill night)" autocomplete="off" spellcheck="false" aria-label="Scene name"><button class="mini" id="sceneSave">＋ Save current</button></div>
+    <div class="chips" id="sceneList" style="margin-top:8px"></div>
+    <p class="shint" id="sceneEmpty">Save the mode, palette and effects you have on now, then switch back to them in one tap.</p>
+  </div>
+  <div class="sset">
     <div class="shead">Auto playlist <span id="poolCount"></span><span class="sbtns"><button class="mini" id="poolFav" aria-pressed="false" title="Only your starred modes, with Auto on">⭐ Faves</button><button class="mini" id="poolLyrics" title="Only the lyric modes, with Auto on">🎤 Lyrics</button><button class="mini" id="poolAll">All</button><button class="mini" id="poolNone">None</button></span></div>
     <div class="mode-filters" id="poolGroups" role="group" aria-label="Group playlists" style="margin-bottom:10px"></div>
     <div class="chips" id="poolChips" role="group" aria-label="Modes Auto can use"></div>
@@ -161,12 +172,14 @@
     <input type="text" id="customText" maxlength="24" placeholder="AFTERGLOW" autocomplete="off" spellcheck="false">
     <p class="shint">Shows on Classic Bars, the Vinyl label, Particle Text, the LED Board, Neon Sign, Laptop, Karaoke, the lyric modes and Marching Band. Leave it empty for Afterglow.</p>
     <div class="tog"><span><b>Use the song name</b><em>Use the file's song name, or the Apple Music link's song name while tab or system audio is selected.</em></span><button class="btn togb" data-tog="songText" aria-pressed="false">Off</button></div>
+    <div class="tog"><span><b>Song intro card</b><em>When a new song starts, its title and artist slide in at the bottom for a few seconds</em></span><button class="btn togb" data-tog="introCard" aria-pressed="true">On</button></div>
     <div class="tog"><span><b>Look up lyrics</b><em>Looks up the playing song's lyrics on LRCLIB, a free lyrics database, and types them out. Needs the song name (a file, or the Apple Music link) and an internet connection; falls back to your text.</em></span><button class="btn togb" data-tog="lyrics" aria-pressed="true">On</button></div>
     <label for="lyricMatch">Lyrics version</label>
     <select id="lyricMatch" aria-describedby="lyricTimingStatus" style="width:100%;max-width:100%" disabled><option value="">Automatic matching</option></select>
     <p class="hint" id="lyricTimingStatus" aria-live="polite">Waiting for song information</p>
     <div class="tog"><span><b>Lyrics timing</b><em id="lyrOffTxt"></em></span><input type="range" id="lyrOff" min="-1" max="2" step="0.05" aria-label="Lyrics timing"></div>
     <div class="tog"><span><b>Listen for the singing</b><em>Experimental. Uses voice-range pulses to gently nudge estimated lyric progress. Only used without exact word timestamps. Drums, backing vocals and ad-libs can fool it.</em></span><button class="btn togb" data-tog="listen" aria-pressed="false">Off</button></div>
+    <button class="btn" id="btnInstall" hidden style="margin-top:10px">⬇ Install Afterglow as an app</button>
     <label class="shead" style="margin-top:14px;display:block">Apple Music link</label>
     <a class="btn" id="bmLink" href="#" draggable="true" style="display:inline-flex;margin-top:6px">♪ Afterglow link</a>
     <a class="btn" id="bmInspect" href="#" draggable="true" style="display:inline-flex;margin-top:6px;margin-left:6px">🔍 Lyrics inspector</a>
