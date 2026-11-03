@@ -182,10 +182,20 @@ input[type="range"]{width:128px;margin:0;accent-color:var(--accent);height:18px}
 #modeSearch,select{box-sizing:border-box;font:inherit;color:var(--text);background:#191722;border:1px solid var(--line);border-radius:10px;padding:10px}
 #modeSearch{width:100%;margin-bottom:10px}
 .mode-tools{display:flex;align-items:center;gap:12px;margin-bottom:12px;font:11px var(--font-mono);color:var(--muted)}
-#favoritesOnly[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+#favoritesOnly[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:transparent}
 #modeChips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.mode-choice{display:flex;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.mode-choice .mchip{border:0;border-radius:0;text-align:left;flex:1;min-width:0;font-size:12px;line-height:1.3}
+.mode-tools{flex-wrap:wrap}
+.mode-filters{display:flex;flex-wrap:wrap;gap:6px}
+.mode-filters .mini[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.mode-choice{position:relative;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#100f17}
+.mode-choice .mchip{display:grid;width:100%;border:0;border-radius:0;text-align:left;padding:0 0 8px;font-size:12.5px;line-height:1.3;background:transparent;gap:2px}
+.mode-choice .mchip[aria-pressed="true"]{background:transparent;color:var(--text);box-shadow:inset 0 0 0 2px var(--accent)}
+.mode-choice .thumb{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#0b0a10;margin-bottom:6px}
+.mode-choice.nothumb .mchip{padding-top:10px}
+.mode-choice .mname{padding:0 10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mode-choice .mgroup{padding:0 10px;font:500 10px var(--font-mono);color:var(--muted);letter-spacing:.04em}
+.mode-choice .mchip:hover .mname,.mode-choice .mchip:focus-visible .mname{color:var(--accent-2)}
+.mode-choice .favorite{position:absolute;top:4px;right:4px;min-width:32px;height:32px;border-radius:9px;background:rgba(9,8,14,.55)}
 .favorite{border:0;background:transparent;cursor:pointer;color:var(--muted);font-size:21px;min-width:36px}
 .favorite[aria-pressed="true"]{color:var(--accent-2)}
 @media (max-width:360px){#modeChips{grid-template-columns:1fr}}

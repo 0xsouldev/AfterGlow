@@ -23,6 +23,15 @@ const PALETTES = {
 const PAL_KEYS = Object.keys(PALETTES);
 const MODE_NAMES = { orbit:'Orbit', ridge:'Ridgeline', scope:'Scope', galaxy:'Galaxy', synth:'Synthwave', kaleido:'Kaleido', hyper:'Hyperspace', fireworks:'Fireworks', city:'Neon City', dna:'DNA', fire:'Fire', rain:'Code Rain', chrome:'Liquid Chrome', aurora:'Aurora', ink:'Ink Smoke', classic:'Classic Bars', mandala:'Mandala', lightning:'Lightning', vinyl:'Vinyl', hifi:'Hi-Fi', cymatics:'Cymatics', blackhole:'Black Hole', plexus:'Plexus', spectro:'Spectrogram', strings:'Strings', ecg:'Heartbeat', radar:'Radar', lasers:'Laser Show', trip:'Feedback Trip', tunnel:'Neon Tunnel', ptext:'Particle Text', topo:'Topo Map', pendulum:'Pendulum Wave', tree:'Fractal Tree', sunflower:'Sunflower', hex:'Hex Grid', led:'LED Board', jelly:'Jellyfish', blocks:'Beat Blocks', pads:'Drum Pads', floor:'Dance Floor', sub:'Subwoofer', step:'Beat Ring', bounce:'Bounce', cube:"Rubik's Cube", invaders:'Space Invaders', domino:'Domino Run', slots:'Slot Machine', neon:'Neon Sign', mosh:'Moshpit', type:'Laptop', highway:'Highway', koi:'Koi Pond', slinky:'Slinky', origami:'Origami Fan', fairy:'Fairy Lights', flag:'Waving Flag', karaoke:'Karaoke', march:'Marching Band', cam:'Mirror Cam', ninja:'Ninja Slash', kinetic:'Kinetic Type', texts:'Text Messages', flap:'Split-Flap Board', crawl:'Lyric Crawl' };
 const MODES = Object.keys(MODE_NAMES);
+// Every mode sits in one group: for browsing All modes and for one-tap Auto playlists
+const MODE_GROUPS = {
+  chill:  { name: 'Chill',  icon: '🌊', modes: ['orbit','ridge','galaxy','kaleido','chrome','aurora','ink','mandala','cymatics','plexus','topo','pendulum','tree','sunflower','jelly','koi','slinky','origami','fairy','flag','dna'] },
+  party:  { name: 'Party',  icon: '🔥', modes: ['fireworks','lightning','hyper','fire','blackhole','lasers','trip','tunnel','strings','floor','mosh','march','ninja'] },
+  beat:   { name: 'Beat',   icon: '🥁', modes: ['scope','classic','vinyl','hifi','spectro','ecg','radar','hex','blocks','pads','sub','step','bounce'] },
+  retro:  { name: 'Retro',  icon: '🕹️', modes: ['synth','city','rain','ptext','led','cube','invaders','domino','slots','neon','highway','cam'] },
+  lyrics: { name: 'Lyrics', icon: '🎤', modes: ['type','karaoke','kinetic','texts','flap','crawl'] },
+};
+const modeGroup = m => Object.keys(MODE_GROUPS).find(k => MODE_GROUPS[k].modes.includes(m)) || 'chill';
 
 const settings = { mode:'orbit', palette:'sunset', sens:1, smooth:0.78, auto:false, autoEvery:32, autoSkip:[], favorites:[], autoFav:false, quality:'high', dropSensitivity:1, dropImpact:1, reduceFlashes:false, text:'', cymEvery:4, agc:true, xfade:true, autoDrop:true, autoEnergy:true, songText:false, lyrics:true, listen:false, lyrOff:0.3, beatSrc:'auto', fx:{ drops:true, vhs:false, mirror:0, glow:false } };
 const STORE_KEY = 'afterglow.v1';
@@ -3514,7 +3523,7 @@ function stepMode(dir){
   pickMode(m); toast(MODE_NAMES[m], 1200);
 }
 function autoTick(now){
-  if (!settings.auto) return;
+  if (!settings.auto || (typeof PEEK !== 'undefined' && PEEK.from)) return;   // not while you're previewing a mode in All modes
   if (F.beatNow) autoBeats++;
   if (settings.autoDrop && F.dropNow && autoBeats >= 4){ autoNext(settings.autoEnergy ? 'high' : ''); return; }   // big moment: switch right on the drop
   if ((autoBeats >= settings.autoEvery && F.beatNow) || now - autoSince > settings.autoEvery*800) autoNext();
@@ -3852,12 +3861,26 @@ const setPanel = $('#setPanel'), btnSet = $('#btnSettings');
 function openSettings(open){ const hadFocus = setPanel.contains(document.activeElement); setPanel.hidden = !open; btnSet.setAttribute('aria-expanded', String(open)); if (open){ openHelp(false); openModes(false); syncSettingsPanel(); poke(); } if (open || hadFocus) panelFocus(setPanel, btnSet, open, $('#btnSetClose')); }
 /* all-modes panel */
 const modePanel = $('#modePanel'), btnAll = $('#btnAllModes'), modeChips = $('#modeChips');
-let favoritesOnly = false;
+let modeFilter = 'all';   // all, fav, or a group key
 const modeSearch = $('#modeSearch');
+const thumbSrc = m => (window.AG_THUMBS && window.AG_THUMBS[m]) || 'assets/thumbs/' + m + '.webp';
+{ // filter row: All, Favourites, then one per group
+  const row = $('#modeFilters'), mk = (key, label) => { const b = key === 'fav' ? $('#favoritesOnly') : document.createElement('button'); if (key !== 'fav'){ b.className = 'mini'; b.textContent = label; row.appendChild(b); } b.dataset.filter = key; b.addEventListener('click', () => { modeFilter = modeFilter === key && key !== 'all' ? 'all' : key; filterModes(); }); };
+  mk('all', 'All'); row.appendChild($('#favoritesOnly')); mk('fav');
+  for (const [k, gr] of Object.entries(MODE_GROUPS)) mk(k, gr.icon + ' ' + gr.name);
+}
 MODES.forEach(m => {
   const row = document.createElement('div'); row.className = 'mode-choice'; row.dataset.modeRow = m;
-  const b = document.createElement('button'); b.className = 'mchip'; b.dataset.pick = m; b.textContent = MODE_NAMES[m];
-  b.addEventListener('click', () => { pickMode(m); openModes(false); toast(MODE_NAMES[m], 1200); });
+  const b = document.createElement('button'); b.className = 'mchip'; b.dataset.pick = m;
+  const img = document.createElement('img'); img.className = 'thumb'; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.src = thumbSrc(m); img.onerror = () => { img.remove(); row.classList.add('nothumb'); };
+  const nm = document.createElement('span'); nm.className = 'mname'; nm.textContent = MODE_NAMES[m];
+  const gr = document.createElement('span'); gr.className = 'mgroup'; gr.textContent = MODE_GROUPS[modeGroup(m)].icon + ' ' + MODE_GROUPS[modeGroup(m)].name;
+  b.append(img, nm, gr);
+  b.addEventListener('click', () => { peekEnd(true); pickMode(m); openModes(false); toast(MODE_NAMES[m], 1200); });
+  // live preview: hover (or keyboard focus) on a mode for a moment and it plays behind the panel; leave and it goes back
+  b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') peekStart(m); });
+  b.addEventListener('pointerleave', () => peekCancel());
+  b.addEventListener('focus', () => peekStart(m)); b.addEventListener('blur', () => peekCancel());
   const star = document.createElement('button'); star.className = 'favorite'; star.dataset.favorite = m;
   star.addEventListener('click', () => {
     const saved = new Set(settings.favorites); saved.has(m) ? saved.delete(m) : saved.add(m);
@@ -3866,23 +3889,26 @@ MODES.forEach(m => {
   });
   row.append(b, star); modeChips.appendChild(row);
 });
+const PEEK = { from: null, to: null, timer: 0 };
+function peekStart(m){ clearTimeout(PEEK.timer); PEEK.timer = setTimeout(() => { if (modePanel.hidden || m === settings.mode && !PEEK.from) return; if (!PEEK.from) PEEK.from = settings.mode; PEEK.to = m; setMode(m); }, 280); }
+function peekCancel(){ clearTimeout(PEEK.timer); PEEK.timer = setTimeout(() => peekEnd(false), 220); }
+function peekEnd(keep){ clearTimeout(PEEK.timer); if (PEEK.from && !keep && settings.mode !== PEEK.from) setMode(PEEK.from); PEEK.from = PEEK.to = null; }
 function filterModes(){
   const query = modeSearch.value.trim().toLowerCase(); let count = 0;
   modeChips.querySelectorAll('[data-mode-row]').forEach(row => {
-    const m = row.dataset.modeRow, favorite = settings.favorites.includes(m), star = row.querySelector('.favorite');
-    const tags = ['type','karaoke','kinetic','texts','flap','crawl'].includes(m) ? ' lyrics karaoke' : '';
-    row.hidden = (favoritesOnly && !favorite) || !(MODE_NAMES[m].toLowerCase() + tags).includes(query);
+    const m = row.dataset.modeRow, favorite = settings.favorites.includes(m), star = row.querySelector('.favorite'), grp = modeGroup(m);
+    const words = (MODE_NAMES[m] + ' ' + MODE_GROUPS[grp].name + (grp === 'lyrics' ? ' karaoke' : '')).toLowerCase();
+    row.hidden = (modeFilter === 'fav' && !favorite) || (MODE_GROUPS[modeFilter] && grp !== modeFilter) || !words.includes(query);
     if (!row.hidden) count++;
     star.textContent = favorite ? '★' : '☆'; star.setAttribute('aria-pressed', String(favorite));
     star.setAttribute('aria-label', (favorite ? 'Remove ' : 'Add ') + MODE_NAMES[m] + (favorite ? ' from' : ' to') + ' favourites');
-    row.querySelector('.mchip').setAttribute('aria-pressed', String(m === settings.mode));
+    row.querySelector('.mchip').setAttribute('aria-pressed', String(m === (PEEK.from || settings.mode)));
   });
-  $('#favoritesOnly').setAttribute('aria-pressed', String(favoritesOnly));
+  document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === modeFilter)));
   $('#modeCount').textContent = count + (count === 1 ? ' mode' : ' modes'); $('#modeEmpty').hidden = count !== 0;
 }
 modeSearch.addEventListener('input', filterModes);
-$('#favoritesOnly').addEventListener('click', () => { favoritesOnly = !favoritesOnly; filterModes(); });
-function openModes(open){ const hadFocus = modePanel.contains(document.activeElement); modePanel.hidden = !open; btnAll.setAttribute('aria-expanded', String(open)); if (open){ openHelp(false); openSettings(false); filterModes(); poke(); } if (open || hadFocus) panelFocus(modePanel, btnAll, open, modeSearch); }
+function openModes(open){ const hadFocus = modePanel.contains(document.activeElement); if (!open) peekEnd(false); modePanel.hidden = !open; btnAll.setAttribute('aria-expanded', String(open)); if (open){ openHelp(false); openSettings(false); filterModes(); poke(); } if (open || hadFocus) panelFocus(modePanel, btnAll, open, modeSearch); }
 btnAll.addEventListener('click', () => openModes(modePanel.hidden));
 $('#btnModesClose').addEventListener('click', () => openModes(false));
 $('#btnTap').addEventListener('click', () => { ensureCtx(); tapTempo(); });
@@ -3903,7 +3929,7 @@ MODES.forEach(m => {
 });
 $('#poolAll').addEventListener('click', () => { settings.autoSkip = []; settings.autoFav = false; autoBag = []; syncSettingsPanel(); save(); });
 // lyrics playlist: Auto rotates through just the lyric modes
-const LYRIC_MODES = ['type', 'karaoke', 'kinetic', 'texts', 'flap', 'crawl'];
+const LYRIC_MODES = MODE_GROUPS.lyrics.modes;
 $('#poolLyrics').addEventListener('click', () => {
   settings.autoSkip = MODES.filter(m => !LYRIC_MODES.includes(m)); settings.autoFav = false; autoBag = [];
   if (!LYRIC_MODES.includes(settings.mode)) pickMode(LYRIC_MODES[(Math.random()*LYRIC_MODES.length)|0]);
@@ -3917,6 +3943,17 @@ $('#poolFav').addEventListener('click', () => {
   if (!settings.favorites.includes(settings.mode)) pickMode(settings.favorites[(Math.random()*settings.favorites.length)|0]);
   setAuto(true); save(); toast('Favourites playlist on: Auto rotates your ' + settings.favorites.length + ' starred modes', 2600);
 });
+// group playlists: Auto rotates just one group (Chill, Party, Beat, Retro)
+for (const [k, gr] of Object.entries(MODE_GROUPS)){
+  if (k === 'lyrics') continue;
+  const b = document.createElement('button'); b.className = 'mini'; b.dataset.poolGroup = k; b.textContent = gr.icon + ' ' + gr.name; b.title = 'Only the ' + gr.name + ' modes, with Auto on';
+  b.addEventListener('click', () => {
+    settings.autoSkip = MODES.filter(m => !gr.modes.includes(m)); settings.autoFav = false; autoBag = [];
+    if (!gr.modes.includes(settings.mode)) pickMode(gr.modes[(Math.random()*gr.modes.length)|0]);
+    setAuto(true); syncSettingsPanel(); save(); toast(gr.name + ' playlist on: Auto rotates the ' + gr.modes.length + ' ' + gr.name + ' modes', 2600);
+  });
+  $('#poolGroups').appendChild(b);
+}
 $('#poolNone').addEventListener('click', () => { settings.autoSkip = MODES.slice(); settings.autoFav = false; autoBag = []; syncSettingsPanel(); save(); });
 ctext.addEventListener('input', () => { settings.text = ctext.value.slice(0, 24); save(); });
 $('#lyricMatch').addEventListener('change',event=>{
@@ -3940,6 +3977,9 @@ function syncSettingsPanel(){
   const on = MODES.length - settings.autoSkip.length;
   $('#poolCount').textContent = settings.autoFav && on >= 2 ? '⭐ ' + on + ' favourites' : on >= 2 ? on + ' of ' + MODES.length : 'using all';
   $('#poolFav').setAttribute('aria-pressed', String(settings.autoFav));
+  { const on = MODES.filter(m => !settings.autoSkip.includes(m)), same = list => !settings.autoFav && on.length === list.length && list.every(m => on.includes(m));
+    document.querySelectorAll('[data-pool-group]').forEach(b => b.setAttribute('aria-pressed', String(same(MODE_GROUPS[b.dataset.poolGroup].modes))));
+    $('#poolLyrics').setAttribute('aria-pressed', String(same(MODE_GROUPS.lyrics.modes))); }
   if (document.activeElement !== ctext) ctext.value = settings.text;
 }
 

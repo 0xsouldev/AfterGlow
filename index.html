@@ -100,11 +100,11 @@
 <aside class="help" id="modePanel" hidden aria-labelledby="modeTitle">
   <button class="icon close" id="btnModesClose" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <h2 id="modeTitle">All modes</h2>
-  <p class="lead">Find a visual, or save your favourites with the star.</p>
+  <p class="lead">Hover a mode to preview it live behind this panel. Click to keep it, star it to save it.</p>
   <label class="shead" for="modeSearch">Search modes</label>
   <input id="modeSearch" type="search" placeholder="Try lyrics, neon or orbit" autocomplete="off">
-  <div class="mode-tools"><button class="mini" id="favoritesOnly" aria-pressed="false">Favourites</button><span id="modeCount" role="status" aria-live="polite"></span></div>
-  <p id="modeEmpty" class="shint" hidden>No matching modes. Try another search or turn off Favourites.</p>
+  <div class="mode-tools"><div class="mode-filters" id="modeFilters" role="group" aria-label="Show"><button class="mini" id="favoritesOnly" aria-pressed="false">⭐ Favourites</button></div><span id="modeCount" role="status" aria-live="polite"></span></div>
+  <p id="modeEmpty" class="shint" hidden>No matching modes. Try another search or pick All.</p>
   <div class="chips" id="modeChips" role="group" aria-label="Pick a mode"></div>
 </aside>
 
@@ -152,6 +152,7 @@
   </div>
   <div class="sset">
     <div class="shead">Auto playlist <span id="poolCount"></span><span class="sbtns"><button class="mini" id="poolFav" aria-pressed="false" title="Only your starred modes, with Auto on">⭐ Faves</button><button class="mini" id="poolLyrics" title="Only the lyric modes, with Auto on">🎤 Lyrics</button><button class="mini" id="poolAll">All</button><button class="mini" id="poolNone">None</button></span></div>
+    <div class="mode-filters" id="poolGroups" role="group" aria-label="Group playlists" style="margin-bottom:10px"></div>
     <div class="chips" id="poolChips" role="group" aria-label="Modes Auto can use"></div>
     <p class="shint">Tap a mode to leave it out of Auto. Auto needs at least 2 modes, otherwise it uses all of them.</p>
   </div>
